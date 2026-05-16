@@ -285,23 +285,120 @@ async function callAI(userText) {
     }
 
     const data = await response.json();
-    return data.reply || generateFallbackReply();
+    return data.reply || generateLocalReply();
 
   } catch (error) {
-    console.error('Chat error:', error);
-    return generateFallbackReply();
+    console.warn('Chat API不可用，使用本地回复:', error);
+    return generateLocalReply();
   }
+}
+
+// 本地智能回复生成器
+function generateLocalReply() {
+  const lastMsg = S.history.length > 0 ? S.history[S.history.length - 1].content.toLowerCase() : '';
+  
+  // 智能关键词匹配回复
+  const smartReplies = [
+    // 问候
+    { patterns: ['你好', '早', '晚', '嗨', '哈喽', '早上好', '晚上好'], replies: [
+      '嗯，你来了啊。今天过得怎么样？',
+      '哦，是你啊。找我有什么事吗？',
+      '行啊，你终于来找我聊天了。说吧，想聊什么？'
+    ]},
+    // 三国杀相关
+    { patterns: ['三国杀', '杀', '游戏', '玩', '来一局', '对战'], replies: [
+      '来啊，谁怕谁！这次我肯定不会放水的。选个武将赶紧开始吧！',
+      '行，那就来一局！我最近练了新武将，正好试试手。你想玩什么武将？',
+      '又来？这次可别再像上次那样磨蹭了。赶紧选武将开始！'
+    ]},
+    // 睡觉/困
+    { patterns: ['睡', '困', '累', '休息', '晚安'], replies: [
+      '（打哈欠）确实有点困了。今天上课都没什么精神，早点休息也好。你也早点睡吧。',
+      '别吵我，让我睡会儿。昨晚睡得太晚了，现在困死了。有什么事明天再说吧。',
+      '嗯...困死了。今天就聊到这儿吧，明天再继续。晚安。'
+    ]},
+    // 夸赞
+    { patterns: ['厉害', '棒', '强', '牛', '好', '优秀', '厉害啊'], replies: [
+      '切，也就那样吧。我本来就挺厉害的，你才发现吗？',
+      '哦？你眼光不错嘛。不过别夸得太夸张，我会不好意思的。',
+      '行吧，勉强接受你的夸奖。不过别以为这样我就会让着你。'
+    ]},
+    // 提问
+    { patterns: ['?', '？', '什么', '怎么', '为什么', '吗', '是吗'], replies: [
+      '你觉得呢？这个问题你应该有自己的想法吧。说说看？',
+      '嗯...让我想想。这个问题还挺有意思的，让我好好考虑一下。',
+      '这个嘛，不好说。每个人都有不同的看法，你觉得呢？'
+    ]},
+    // 吃饭
+    { patterns: ['吃', '饭', '饿', '饿了', '吃饭'], replies: [
+      '行，去吃吧。正好我也有点饿了，你想吃什么？',
+      '哦，这么快就饿了？那赶紧去吃吧，别饿着了。',
+      '吃什么？是去食堂还是外面吃？我听说学校附近新开了一家店。'
+    ]},
+    // 关心
+    { patterns: ['没事吧', '还好吗', '怎么了', '没事', '你还好'], replies: [
+      '啊？我没事啊，你怎么突然这么问？是不是发生什么事了？',
+      '我挺好的，谢谢你关心。你呢，最近怎么样？',
+      '没什么大事，就是有点累。放心吧，我睡一觉就好了。'
+    ]},
+    // 道别
+    { patterns: ['再见', '拜拜', '走了', '下次'], replies: [
+      '行，再见。下次再来找我玩啊，随时欢迎。',
+      '拜拜。路上小心点，下次见！',
+      '嗯，下次见。别忘了我们下次的三国杀对局！'
+    ]}
+  ];
+  
+  // 检查匹配
+  for (const item of smartReplies) {
+    for (const pattern of item.patterns) {
+      if (lastMsg.includes(pattern)) {
+        return item.replies[Math.floor(Math.random() * item.replies.length)] + getStatusTag();
+      }
+    }
+  }
+  
+  // 默认回复
+  const defaultReplies = [
+    '哦↗，你说这个啊。我觉得还挺有意思的，继续说说？',
+    '嗯...让我想想。这个话题还挺深奥的，你是怎么想的？',
+    '行吧，既然你这么说。那我们就继续聊这个话题？',
+    '切，就这？我还以为是什么大事呢。不过既然你说了，那就聊聊吧。',
+    '你说啥？我没太听清，能再说一遍吗？',
+    '别吵，困了。今天就到这里吧，明天再聊。',
+    '那又怎样？这种事情我见多了，没什么好大惊小怪的。',
+    '随便你吧，你想怎么样就怎么样。我无所谓。',
+    '哦，这样啊。原来是这么回事，我明白了。',
+    '行，知道了。我记住了，还有什么事吗？'
+  ];
+  
+  return defaultReplies[Math.floor(Math.random() * defaultReplies.length)] + getStatusTag();
+}
+
+function getStatusTag() {
+  // 根据当前状态生成标签
+  const moods = ['正常', '开心', '兴奋', '不屑', '困倦', '疑惑'];
+  const mood = moods[Math.floor(Math.random() * moods.length)];
+  const likeChange = Math.floor(Math.random() * 3) - 1; // -1, 0, 或 1
+  const trustChange = Math.floor(Math.random() * 3) - 1; // -1, 0, 或 1
+  
+  return `<情绪(${mood})><好感变化:${likeChange >= 0 ? '+' : ''}${likeChange}><信任变化:${trustChange >= 0 ? '+' : ''}${trustChange}>`;
 }
 
 function generateFallbackReply() {
   const fallbacks = [
-    '哦↗<好感变化:0>',
-    '嗯...<好感变化:0>',
-    '行吧<好感变化:0>',
-    '切<好感变化:0>',
-    '你说啥？<好感变化:0>',
-    '别吵，困了。<好感变化:0>',
-    '就这？<好感变化:0>'
+    '哦↗<情绪(正常)><好感变化:0><信任变化:0>',
+    '嗯...<情绪(正常)><好感变化:0><信任变化:0>',
+    '行吧<情绪(正常)><好感变化:0><信任变化:0>',
+    '切<情绪(不屑)><好感变化:-1><信任变化:0>',
+    '你说啥？<情绪(疑惑)><好感变化:0><信任变化:0>',
+    '别吵，困了。<情绪(困倦)><好感变化:-1><信任变化:0>',
+    '就这？<情绪(不屑)><好感变化:0><信任变化:0>',
+    '（打哈欠）<情绪(困倦)><好感变化:0><信任变化:0>',
+    '那又怎样？<情绪(不屑)><好感变化:0><信任变化:0>',
+    '随便你。<情绪(正常)><好感变化:0><信任变化:0>',
+    '哦，这样啊。<情绪(正常)><好感变化:0><信任变化:0>',
+    '行，知道了。<情绪(正常)><好感变化:+1><信任变化:0>'
   ];
   return fallbacks[Math.floor(Math.random() * fallbacks.length)];
 }
