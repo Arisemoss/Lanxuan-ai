@@ -221,15 +221,24 @@ function showTyping() {
 
 function updateMood(text) {
   const lower = text.toLowerCase();
-  if (lower.includes('睡觉') || lower.includes('困') || lower.includes('晚安')) {
+  // 困倦相关
+  if (lower.includes('睡觉') || lower.includes('困') || lower.includes('晚安') || lower.includes('累')) {
     S.mood = '困倦';
-  } else if (lower.includes('三国杀') || lower.includes('游戏')) {
+  } 
+  // 兴奋相关
+  else if (lower.includes('三国杀') || lower.includes('游戏') || lower.includes('玩') || lower.includes('来一局')) {
     S.mood = '兴奋';
-  } else if (lower.includes('烦') || lower.includes('讨厌') || lower.includes('滚')) {
+  } 
+  // 不爽相关
+  else if (lower.includes('烦') || lower.includes('讨厌') || lower.includes('滚') || lower.includes('去死') || lower.includes('白痴')) {
     S.mood = '不爽';
-  } else if (lower.includes('开心') || lower.includes('哈哈') || lower.includes('笑')) {
+  } 
+  // 开心相关
+  else if (lower.includes('开心') || lower.includes('哈哈') || lower.includes('笑') || lower.includes('棒') || lower.includes('厉害')) {
     S.mood = '开心';
-  } else {
+  } 
+  // 保持当前情绪或恢复正常
+  else {
     S.mood = '正常';
   }
 }
@@ -1000,7 +1009,7 @@ function endTurn() {
   setTimeout(aiTurn, 700);
 }
 
-// ═══ AI回合 ═══
+// ═══ AI回合（智能优化版） ═══
 function aiTurn() {
   if (!G.active) return;
   
@@ -1009,10 +1018,24 @@ function aiTurn() {
   G.ai.hasDrawn = true;
   addLog('兰轩摸了牌', 'log-card');
 
-  // AI技能使用
+  // AI智能策略 - 根据情况选择最优策略
+  let actionDelay = 0;
+  
+  setTimeout(() => {
+    // AI智能技能使用
+    useAISmartSkills();
+    
+    // 执行AI出牌策略
+    executeSmartAIActions();
+  }, 800);
+}
+
+function useAISmartSkills() {
+  // 关羽义绝 - 有红色牌且准备杀人时使用
   if (G.ai.hero?.id === 'guanyu' && !G.ai.skillUsed) {
+    const hasSha = G.ai.hand.some(c => c.type === 'sha');
     const redCards = G.ai.hand.filter(c => c.color === 'red');
-    if (redCards.length >= 1) {
+    if (hasSha && redCards.length >= 1) {
       const idx = G.ai.hand.indexOf(redCards[0]);
       G.ai.hand.splice(idx, 1);
       G.ai.skillUsed = true;
@@ -1022,20 +1045,31 @@ function aiTurn() {
     }
   }
   
-  if (G.ai.hero?.id === 'zhangfei' && !G.ai.skillUsed && G.ai.hand.length === 0) {
+  // 张飞怒吼 - 手牌为0且有机会时使用
+  if (G.ai.hero?.id === 'zhangfei' && !G.ai.skillUsed && G.ai.hand.length === 0 && G.player.hp <= 2) {
     G.ai.skillUsed = true;
     damage(G.player, 1);
     addLog('【怒吼】兰轩手牌为0，对你造成1点伤害！', 'log-skill');
     addMsg('a', '（大喝）接俺一吼！');
     if (checkEnd()) return;
   }
+}
 
+function executeSmartAIActions() {
   let acted = true;
-  while (acted) {
+  let actionsCount = 0;
+  const maxActions = 6; // 限制AI行动次数
+  
+  const executeNextAction = () => {
+    if (!G.active || actionsCount >= maxActions) {
+      finishAITurn();
+      return;
+    }
+    
     acted = false;
-
-    // 治疗优先
-    if (G.ai.hp < G.ai.maxHp) {
+    
+    // 策略1：血量低时优先治疗
+    if (G.ai.hp <= 2 && G.ai.hp < G.ai.maxHp) {
       const t = G.ai.hand.findIndex(c => c.type === 'tao');
       if (t >= 0) {
         G.ai.hand.splice(t, 1);
@@ -1044,24 +1078,55 @@ function aiTurn() {
         addLog('兰轩使用【桃】恢复体力', 'log-heal');
         addMsg('a', '（得意）想杀我没那么容易。');
         acted = true;
-        continue;
+        actionsCount++;
       }
     }
-
-    // 出杀
-    const s = G.ai.hand.findIndex(c => c.type === 'sha');
-    if (s >= 0 && !G.ai.shaUsed) {
-      let canUseSha = true;
-      if (G.ai.hero?.id !== 'zhangfei' && G.ai.shaUsed) canUseSha = false;
-      if (canUseSha) {
+    
+    // 策略2：有AOE牌时优先使用
+    if (!acted) {
+      const nm = G.ai.hand.findIndex(c => c.type === 'nmrr');
+      const wj = G.ai.hand.findIndex(c => c.type === 'wjqf');
+      
+      if (nm >= 0) {
+        G.ai.hand.splice(nm, 1);
+        showPlayedCard(CARDS[5], '兰轩使用【南蛮入侵】！');
+        addLog('兰轩使用【南蛮入侵】！', 'log-dmg');
+        if (!playerDefendNanMan()) {
+          damage(G.player, 1);
+          addLog('你无法抵挡，受到1点伤害！', 'log-dmg');
+        }
+        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        if (checkEnd()) return;
+        acted = true;
+        actionsCount++;
+      } else if (wj >= 0) {
+        G.ai.hand.splice(wj, 1);
+        showPlayedCard(CARDS[6], '兰轩使用【万箭齐发】！');
+        addLog('兰轩使用【万箭齐发】！', 'log-dmg');
+        if (!playerDefendWanJian()) {
+          damage(G.player, 1);
+          addLog('你无法抵挡，受到1点伤害！', 'log-dmg');
+        }
+        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        if (checkEnd()) return;
+        acted = true;
+        actionsCount++;
+      }
+    }
+    
+    // 策略3：然后出杀
+    if (!acted) {
+      const s = G.ai.hand.findIndex(c => c.type === 'sha');
+      const canUseSha = (!G.ai.shaUsed || G.ai.hero?.id === 'zhangfei');
+      if (s >= 0 && canUseSha) {
         G.ai.hand.splice(s, 1);
         G.ai.shaUsed = true;
         showPlayedCard(CARDS[0], '兰轩对你使用【杀】！');
         addLog('兰轩对你使用【杀】！', 'log-dmg');
         triggerYaJiao(G.ai);
-
+        
         let needShan = G.ai.hero?.id === 'lvbu' ? 2 : 1;
-
+        
         if (G.ai.skillState === 'yijue') {
           addLog('【义绝】效果生效，你无法使用【闪】！', 'log-skill');
           damage(G.player, 1);
@@ -1080,71 +1145,47 @@ function aiTurn() {
         }
         if (checkEnd()) return;
         acted = true;
-        continue;
+        actionsCount++;
       }
     }
-
-    // 南蛮入侵
-    const nm = G.ai.hand.findIndex(c => c.type === 'nmrr');
-    if (nm >= 0) {
-      G.ai.hand.splice(nm, 1);
-      showPlayedCard(CARDS[5], '兰轩使用【南蛮入侵】！');
-      addLog('兰轩使用【南蛮入侵】！', 'log-dmg');
-      if (!playerDefendNanMan()) {
-        damage(G.player, 1);
-        addLog('你无法抵挡，受到1点伤害！', 'log-dmg');
+    
+    // 策略4：过河拆桥 - 拆对方关键牌
+    if (!acted && G.player.hand.length > 0) {
+      const gh = G.ai.hand.findIndex(c => c.type === 'ghcq');
+      if (gh >= 0) {
+        G.ai.hand.splice(gh, 1);
+        // 智能选择要拆的牌
+        let targetIdx = 0;
+        const shaIdx = G.player.hand.findIndex(c => c.type === 'sha');
+        if (shaIdx >= 0) targetIdx = shaIdx;
+        
+        const rm = G.player.hand.splice(targetIdx, 1)[0];
+        showPlayedCard(CARDS[4], '兰轩拆掉了你的【' + rm.name + '】');
+        addLog('兰轩使用【过河拆桥】拆掉了你的【' + rm.name + '】', 'log-dmg');
+        addMsg('a', '（坏笑）嘿嘿。');
+        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        acted = true;
+        actionsCount++;
       }
-      if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
-      if (checkEnd()) return;
-      acted = true;
-      continue;
     }
-
-    // 万箭齐发
-    const wj = G.ai.hand.findIndex(c => c.type === 'wjqf');
-    if (wj >= 0) {
-      G.ai.hand.splice(wj, 1);
-      showPlayedCard(CARDS[6], '兰轩使用【万箭齐发】！');
-      addLog('兰轩使用【万箭齐发】！', 'log-dmg');
-      if (!playerDefendWanJian()) {
-        damage(G.player, 1);
-        addLog('你无法抵挡，受到1点伤害！', 'log-dmg');
+    
+    // 策略5：无中生有 - 补充手牌
+    if (!acted) {
+      const wz = G.ai.hand.findIndex(c => c.type === 'wzsy');
+      if (wz >= 0) {
+        G.ai.hand.splice(wz, 1);
+        const ex = drawFromDeck(2).map(assignColor);
+        G.ai.hand.push(...ex);
+        showPlayedCard(CARDS[3], '兰轩使用【无中生有】');
+        addLog('兰轩使用【无中生有】摸了牌', 'log-card');
+        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        acted = true;
+        actionsCount++;
       }
-      if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
-      if (checkEnd()) return;
-      acted = true;
-      continue;
     }
-
-    // 无中生有
-    const wz = G.ai.hand.findIndex(c => c.type === 'wzsy');
-    if (wz >= 0) {
-      G.ai.hand.splice(wz, 1);
-      const ex = drawFromDeck(2).map(assignColor);
-      G.ai.hand.push(...ex);
-      showPlayedCard(CARDS[3], '兰轩使用【无中生有】');
-      addLog('兰轩使用【无中生有】摸了牌', 'log-card');
-      if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
-      acted = true;
-      continue;
-    }
-
-    // 过河拆桥
-    const gh = G.ai.hand.findIndex(c => c.type === 'ghcq');
-    if (gh >= 0 && G.player.hand.length > 0) {
-      G.ai.hand.splice(gh, 1);
-      const ri = Math.floor(Math.random() * G.player.hand.length);
-      const rm = G.player.hand.splice(ri, 1)[0];
-      showPlayedCard(CARDS[4], '兰轩拆掉了你的【' + rm.name + '】');
-      addLog('兰轩使用【过河拆桥】拆掉了你的【' + rm.name + '】', 'log-dmg');
-      addMsg('a', '（坏笑）嘿嘿。');
-      if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
-      acted = true;
-      continue;
-    }
-
-    // AI吕布利驭
-    if (G.ai.hero?.id === 'lvbu' && !G.ai.skillUsed && G.ai.hand.length > 0) {
+    
+    // 策略6：吕布利驭 - 最后手段
+    if (!acted && G.ai.hero?.id === 'lvbu' && !G.ai.skillUsed && G.ai.hand.length > 0) {
       const discarded = G.ai.hand.splice(0, 1)[0];
       G.ai.skillUsed = true;
       addLog('【利驭】兰轩弃置【' + discarded.name + '】，视为使用一张【杀】', 'log-skill');
@@ -1160,10 +1201,20 @@ function aiTurn() {
       }
       if (checkEnd()) return;
       acted = true;
-      continue;
+      actionsCount++;
     }
-  }
+    
+    if (acted) {
+      setTimeout(executeNextAction, 700);
+    } else {
+      finishAITurn();
+    }
+  };
+  
+  executeNextAction();
+}
 
+function finishAITurn() {
   G.ai.hasDrawn = false;
   G.ai.shaUsed = false;
   G.ai.skillState = null;
