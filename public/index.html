@@ -3,8 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="兰轩 - 三国杀1v1在线对战平台，与傲娇舍友兰轩聊天对战">
-  <title>兰轩 - 三国杀在线对战</title>
+  <meta name="description" content="兰轩 - 与傲娇舍友兰轩聊天对战，三国杀1v1在线对战平台，支持智能对话和好感度系统">
+  <meta name="keywords" content="三国杀, 聊天, AI对话, 在线游戏, 傲娇, 宿舍">
+  <meta name="author" content="兰轩">
+  
+  <!-- Open Graph / 社交分享 -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://lanxuan-game.vercel.app/">
+  <meta property="og:title" content="兰轩 - 三国杀1v1在线对战平台">
+  <meta property="og:description" content="与傲娇舍友兰轩聊天对战！智能AI对话，支持好感度和信任度系统，还有紧张刺激的三国杀1v1对战等你来玩！">
+  <meta property="og:image" content="https://via.placeholder.com/1200x630/3b82f6/ffffff?text=兰轩-三国杀对战">
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="兰轩 - 三国杀1v1在线对战平台">
+  <meta name="twitter:description" content="与傲娇舍友兰轩聊天对战！智能AI对话，支持好感度和信任度系统，还有紧张刺激的三国杀1v1对战等你来玩！">
+  <meta name="twitter:image" content="https://via.placeholder.com/1200x630/3b82f6/ffffff?text=兰轩-三国杀对战">
+  
+  <title>兰轩 - 三国杀1v1在线对战平台</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>兰</text></svg>">
 </head>
@@ -39,6 +55,13 @@
     </div>
     <div class="bar-wrap">
       <div class="bar-fill" id="likeBar" style="width:59%;background:var(--text-3)"></div>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">信任度</span>
+      <span class="stat-value" id="trustNum">50</span>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-fill" id="trustBar" style="width:50%;background:var(--text-3)"></div>
     </div>
   </div>
   <div class="tier-display">
