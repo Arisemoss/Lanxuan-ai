@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="兰轩 - 三国杀1v1在线对战平台，与傲娇舍友兰轩聊天对战">
+  <title>兰轩 - 三国杀在线对战</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>兰</text></svg>">
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">兰</div>
+    <h1>兰轩</h1>
+    <span class="header-badge" id="tierBadge">普通舍友</span>
+  </div>
+  <div class="header-right">
+    <span class="header-time" id="clock"></span>
+  </div>
+</header>
+
+<div class="sidebar-left">
+  <div class="profile-card">
+    <div class="avatar">轩</div>
+    <div class="profile-name">兰轩</div>
+    <div class="profile-sub">豆瓣三中 · 高二</div>
+  </div>
+  <div class="stats-section">
+    <div class="section-label">状态</div>
+    <div class="stat-row">
+      <span class="stat-label">情绪</span>
+      <span class="stat-value"><span class="mood-dot" id="moodDot"></span><span id="moodText">正常</span></span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">好感度</span>
+      <span class="stat-value" id="likeNum">59</span>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-fill" id="likeBar" style="width:59%;background:var(--text-3)"></div>
+    </div>
+  </div>
+  <div class="tier-display">
+    <div class="section-label">关系等级</div>
+    <div class="tier-name" id="tierName">普通舍友</div>
+    <div class="tier-desc">
+      0-59 普通舍友<br>
+      60-69 好朋友<br>
+      70-79 挚友<br>
+      80-89 铁哥们<br>
+      90+ 死基友
+    </div>
+  </div>
+</div>
+
+<div class="center-col">
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-scroll" id="chatScroll"></div>
+    <div class="chat-input-area">
+      <div class="input-wrap">
+        <input class="chat-input" id="chatInput" placeholder="跟兰轩说点什么..." autocomplete="off">
+        <button class="game-toggle-btn" onclick="showHeroSelect()">三国杀</button>
+        <button class="send-btn" onclick="sendMsg()">发送</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-select-screen" id="heroSelectScreen">
+    <div class="hs-header">
+      <div class="hs-title">选择你的武将</div>
+      <div class="hs-sub">每位武将拥有独特的技能，选择适合你的战术风格</div>
+    </div>
+    <div class="hs-grid">
+      <div class="hs-cards" id="hsCards"></div>
+    </div>
+    <div class="hs-footer">点击武将卡片开始对局</div>
+  </div>
+
+  <div class="game-board" id="gameBoard">
+    <div class="gb-felt"></div>
+    <div class="gb-content">
+      <div class="gb-header">
+        <span class="gb-round" id="gbRound">回合 1</span>
+        <span class="gb-phase" id="gbPhase">你的回合 · 出牌阶段</span>
+        <span class="gb-deck" id="gbDeck">牌堆 66</span>
+      </div>
+
+      <div class="gb-zone gb-ai" id="aiZone">
+        <div class="gb-avatar" id="aiAvatar">轩</div>
+        <div class="gb-player-info">
+          <div class="gb-player-name">
+            <span id="aiNameText">兰轩</span>
+            <span class="gb-hero-tag ai-tag" id="aiHeroTag"></span>
+            <span class="gb-turn-tag">出牌中</span>
+          </div>
+          <div class="gb-hp" id="aiHp"></div>
+          <div class="gb-hand-info">手牌 <span id="aiHandCount">4</span> 张</div>
+        </div>
+        <div class="gb-hand-backs" id="aiHandBacks"></div>
+      </div>
+
+      <div class="gb-play-zone">
+        <div class="gb-played-card" id="playedCard"></div>
+        <div class="gb-play-text" id="playText">点击开始对局</div>
+        <div class="gb-deck-pile">
+          <div class="deck-card">杀</div>
+          <div class="deck-count" id="deckCount">66</div>
+        </div>
+      </div>
+
+      <div class="gb-zone gb-player" id="playerZone">
+        <div class="gb-avatar" id="playerAvatar">你</div>
+        <div class="gb-player-info">
+          <div class="gb-player-name">
+            <span>你</span>
+            <span class="gb-hero-tag player-tag" id="playerHeroTag"></span>
+            <span class="gb-turn-tag">出牌中</span>
+          </div>
+          <div class="gb-hp" id="playerHp"></div>
+          <div class="gb-hand-info">手牌 <span id="playerHandCount">4</span> 张</div>
+        </div>
+      </div>
+
+      <div class="gb-hand-area" id="playerHand"></div>
+
+      <div class="gb-actions">
+        <button class="gb-btn gb-btn-primary" id="drawBtn" onclick="drawCard()" disabled>摸牌</button>
+        <button class="gb-skill-btn" id="skillBtn" onclick="useSkill()" disabled>技能</button>
+        <button class="gb-btn gb-btn-secondary" id="endBtn" onclick="endTurn()" disabled>结束回合</button>
+        <button class="gb-btn gb-btn-danger" id="exitBtn" onclick="endGame('quit')" disabled>退出</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sidebar-right">
+  <div class="r-header">
+    <span class="r-header-dot" id="rDot"></span>
+    <span id="rTitle">三国杀</span>
+  </div>
+  <div class="game-preview" id="gamePreview">
+    <div class="preview-icon">杀</div>
+    <div class="preview-title">三国杀 1v1</div>
+    <div class="preview-desc">与兰轩来一场紧张刺激的三国杀对决。选择武将，运用技能击败对手！</div>
+    <button class="preview-start-btn" onclick="showHeroSelect()">选择武将</button>
+  </div>
+  <div class="game-log" id="gameLog" style="display:none"></div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <div class="overlay-title" id="overlayTitle"></div>
+    <div class="overlay-sub" id="overlaySub"></div>
+    <button class="overlay-btn" onclick="closeOverlay()">确定</button>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
