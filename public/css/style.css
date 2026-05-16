@@ -1,15 +1,15 @@
 /* ═══ 兰轩在线平台 - 主样式 ═══ */
 
 :root {
-  --bg: #0a0a0f;
-  --surface: #12121a;
-  --surface-2: #1a1a25;
-  --text: #e4e4e7;
-  --text-2: #a1a1aa;
-  --text-3: #71717a;
-  --border: rgba(255,255,255,.05);
-  --accent: #f59e0b;
-  --cyan: #22d3ee;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --text: #1e293b;
+  --text-2: #475569;
+  --text-3: #94a3b8;
+  --border: rgba(148,163,184,.2);
+  --accent: #3b82f6;
+  --cyan: #0ea5e9;
   --green: #22c55e;
   --red: #ef4444;
   --r: 8px;
@@ -253,8 +253,8 @@ header {
 
 .msg.u {
   align-self: flex-end;
-  background: linear-gradient(135deg, rgba(245,158,11,.15), rgba(245,158,11,.08));
-  border: 1px solid rgba(245,158,11,.15);
+  background: linear-gradient(135deg, rgba(59,130,246,.15), rgba(59,130,246,.08));
+  border: 1px solid rgba(59,130,246,.15);
 }
 
 .msg.a {
@@ -332,7 +332,7 @@ header {
   padding: 8px 16px;
   border-radius: var(--r);
   background: var(--accent);
-  color: #000;
+  color: #ffffff;
   border: none;
   font-size: 11px;
   font-weight: 600;
@@ -470,7 +470,7 @@ header {
 .gb-felt {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 40%, var(--felt-l, #0f2812) 0%, var(--felt, #0a1d0c) 60%, #071508 100%);
+  background: radial-gradient(ellipse at 50% 40%, #e0f2fe 0%, #bae6fd 60%, #7dd3fc 100%);
   z-index: 0;
 }
 
@@ -504,9 +504,10 @@ header {
   align-items: center;
   padding: 7px 14px;
   margin-bottom: 6px;
-  background: rgba(0,0,0,.3);
+  background: rgba(255,255,255,.9);
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,.04);
+  border: 1px solid rgba(59,130,246,.2);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
 }
 
 .gb-round {
@@ -518,13 +519,13 @@ header {
 
 .gb-deck {
   font-size: 10px;
-  color: rgba(255,255,255,.35);
+  color: var(--text-2);
   font-family: var(--mono);
 }
 
 .gb-phase {
   font-size: 10px;
-  color: rgba(255,255,255,.45);
+  color: var(--text-2);
 }
 
 .gb-zone {
@@ -532,15 +533,16 @@ header {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  background: rgba(0,0,0,.22);
+  background: rgba(255,255,255,.8);
   border-radius: 10px;
-  border: 1.5px solid rgba(255,255,255,.03);
+  border: 1.5px solid rgba(59,130,246,.15);
   transition: border-color .4s, box-shadow .4s;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
 }
 
 .gb-zone.active-turn {
-  border-color: rgba(245,158,11,.3);
-  box-shadow: 0 0 24px rgba(245,158,11,.06), inset 0 0 20px rgba(245,158,11,.02);
+  border-color: rgba(59,130,246,.4);
+  box-shadow: 0 0 24px rgba(59,130,246,.15), inset 0 0 20px rgba(59,130,246,.05);
 }
 
 .gb-avatar {
@@ -607,7 +609,7 @@ header {
   padding: 2px 6px;
   border-radius: 8px;
   background: var(--accent);
-  color: #000;
+  color: #ffffff;
   font-weight: 700;
   letter-spacing: .06em;
   display: none;
@@ -648,7 +650,7 @@ header {
 
 .gb-hand-info {
   font-size: 10px;
-  color: rgba(255,255,255,.3);
+  color: var(--text-2);
   font-family: var(--mono);
 }
 
@@ -662,8 +664,8 @@ header {
   width: 30px;
   height: 42px;
   border-radius: 4px;
-  background: linear-gradient(145deg, #1a1a2e, #16213e);
-  border: 1px solid rgba(255,255,255,.06);
+  background: linear-gradient(145deg, #3b82f6, #1d4ed8);
+  border: 1px solid rgba(59,130,246,.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -701,7 +703,7 @@ header {
 
 .gb-play-text {
   font-size: 12px;
-  color: rgba(255,255,255,.45);
+  color: var(--text-2);
   text-align: center;
   min-height: 16px;
   transition: opacity .3s;
@@ -752,19 +754,19 @@ header {
   width: 34px;
   height: 48px;
   border-radius: 4px;
-  background: linear-gradient(145deg, #1a1a2e, #16213e);
-  border: 1px solid rgba(255,255,255,.05);
+  background: linear-gradient(145deg, #3b82f6, #1d4ed8);
+  border: 1px solid rgba(59,130,246,.3);
   font-size: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255,255,255,.12);
+  color: rgba(255,255,255,.7);
   font-family: var(--serif);
 }
 
 .deck-count {
   font-size: 9px;
-  color: rgba(255,255,255,.25);
+  color: var(--text-2);
   font-family: var(--mono);
 }
 
@@ -868,46 +870,46 @@ header {
 
 /* Card Types */
 .card.sha {
-  background: linear-gradient(160deg, #1c0606, #3b0a0a, #1c0606);
+  background: linear-gradient(160deg, #fee2e2, #fca5a5, #fee2e2);
 }
-.card.sha .card-name { color: #fca5a5; }
-.card.sha:hover { box-shadow: 0 8px 28px rgba(185,28,28,.3); }
+.card.sha .card-name { color: #dc2626; }
+.card.sha:hover { box-shadow: 0 8px 28px rgba(220,38,38,.3); }
 
 .card.shan {
-  background: linear-gradient(160deg, #041a0c, #0f3d1c, #041a0c);
+  background: linear-gradient(160deg, #dcfce7, #86efac, #dcfce7);
 }
-.card.shan .card-name { color: #86efac; }
-.card.shan:hover { box-shadow: 0 8px 28px rgba(21,128,61,.3); }
+.card.shan .card-name { color: #16a34a; }
+.card.shan:hover { box-shadow: 0 8px 28px rgba(22,163,74,.3); }
 
 .card.tao {
-  background: linear-gradient(160deg, #1c0610, #3b0818, #1c0610);
+  background: linear-gradient(160deg, #fce7f3, #f9a8d4, #fce7f3);
 }
-.card.tao .card-name { color: #fda4af; }
-.card.tao:hover { box-shadow: 0 8px 28px rgba(190,18,60,.3); }
+.card.tao .card-name { color: #db2777; }
+.card.tao:hover { box-shadow: 0 8px 28px rgba(219,39,119,.3); }
 
 .card.wzsy {
-  background: linear-gradient(160deg, #100628, #220a50, #100628);
+  background: linear-gradient(160deg, #ede9fe, #c4b5fd, #ede9fe);
 }
-.card.wzsy .card-name { color: #c4b5fd; }
-.card.wzsy:hover { box-shadow: 0 8px 28px rgba(109,40,217,.3); }
+.card.wzsy .card-name { color: #7c3aed; }
+.card.wzsy:hover { box-shadow: 0 8px 28px rgba(124,58,237,.3); }
 
 .card.ghcq {
-  background: linear-gradient(160deg, #061028, #0a2650, #061028);
+  background: linear-gradient(160deg, #dbeafe, #93c5fd, #dbeafe);
 }
-.card.ghcq .card-name { color: #93c5fd; }
-.card.ghcq:hover { box-shadow: 0 8px 28px rgba(29,78,216,.3); }
+.card.ghcq .card-name { color: #2563eb; }
+.card.ghcq:hover { box-shadow: 0 8px 28px rgba(37,99,235,.3); }
 
 .card.nmrr {
-  background: linear-gradient(160deg, #1c0e04, #3b1a06, #1c0e04);
+  background: linear-gradient(160deg, #fef3c7, #fcd34d, #fef3c7);
 }
-.card.nmrr .card-name { color: #fdba74; }
-.card.nmrr:hover { box-shadow: 0 8px 28px rgba(194,65,12,.3); }
+.card.nmrr .card-name { color: #d97706; }
+.card.nmrr:hover { box-shadow: 0 8px 28px rgba(217,119,6,.3); }
 
 .card.wjqf {
-  background: linear-gradient(160deg, #041a1c, #0a3b3b, #041a1c);
+  background: linear-gradient(160deg, #cffafe, #67e8f9, #cffafe);
 }
-.card.wjqf .card-name { color: #67e8f9; }
-.card.wjqf:hover { box-shadow: 0 8px 28px rgba(14,116,144,.3); }
+.card.wjqf .card-name { color: #0891b2; }
+.card.wjqf:hover { box-shadow: 0 8px 28px rgba(8,145,178,.3); }
 
 /* ═══ Game Actions ═══ */
 .gb-actions {
@@ -936,7 +938,7 @@ header {
 
 .gb-btn-primary {
   background: var(--accent);
-  color: #000;
+  color: #ffffff;
 }
 
 .gb-btn-primary:hover:not(:disabled) {
@@ -1130,7 +1132,7 @@ header {
 .overlay-btn {
   padding: 10px 28px;
   background: var(--accent);
-  color: #000;
+  color: #ffffff;
   border: none;
   border-radius: var(--r);
   font-weight: 600;

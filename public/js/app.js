@@ -6,6 +6,7 @@
 // ═══ 全局状态 ═══
 const S = {
   like: 59,
+  trust: 50,
   mood: '正常',
   history: [],
   busy: false,
@@ -104,6 +105,7 @@ function initUserId() {
 async function saveUserData() {
   const data = {
     like: S.like,
+    trust: S.trust,
     mood: S.mood,
     history: S.history.slice(-50) // 只保存最近50条
   };
@@ -130,6 +132,7 @@ async function loadUserData() {
     try {
       const data = JSON.parse(localData);
       S.like = data.like || 59;
+      S.trust = data.trust || 50;
       S.mood = data.mood || '正常';
       S.history = data.history || [];
       renderProfile();
@@ -145,6 +148,7 @@ async function loadUserData() {
       const result = await res.json();
       if (result.data) {
         S.like = result.data.like || S.like;
+        S.trust = result.data.trust || S.trust;
         S.mood = result.data.mood || S.mood;
         S.history = result.data.history || S.history;
         renderProfile();
@@ -169,13 +173,24 @@ function initClock() {
 // ═══ 个人资料渲染 ═══
 function renderProfile() {
   document.getElementById('likeNum').textContent = S.like;
-  const bar = document.getElementById('likeBar');
-  bar.style.width = S.like + '%';
+  const likeBar = document.getElementById('likeBar');
+  likeBar.style.width = S.like + '%';
   
   // 根据好感度设置颜色
-  if (S.like >= 80) bar.style.background = 'var(--green)';
-  else if (S.like >= 60) bar.style.background = 'var(--accent)';
-  else bar.style.background = 'var(--text-3)';
+  if (S.like >= 80) likeBar.style.background = 'var(--green)';
+  else if (S.like >= 60) likeBar.style.background = 'var(--accent)';
+  else likeBar.style.background = 'var(--text-3)';
+  
+  // 信任度
+  const trustNum = document.getElementById('trustNum');
+  if (trustNum) trustNum.textContent = S.trust;
+  const trustBar = document.getElementById('trustBar');
+  if (trustBar) {
+    trustBar.style.width = S.trust + '%';
+    if (S.trust >= 80) trustBar.style.background = 'var(--cyan)';
+    else if (S.trust >= 60) trustBar.style.background = 'var(--accent)';
+    else trustBar.style.background = 'var(--text-3)';
+  }
   
   // 等级
   const tier = getTier(S.like);
@@ -221,15 +236,24 @@ function showTyping() {
 
 function updateMood(text) {
   const lower = text.toLowerCase();
-  if (lower.includes('睡觉') || lower.includes('困') || lower.includes('晚安')) {
+  // 困倦相关
+  if (lower.includes('睡觉') || lower.includes('困') || lower.includes('晚安') || lower.includes('累')) {
     S.mood = '困倦';
-  } else if (lower.includes('三国杀') || lower.includes('游戏')) {
+  } 
+  // 兴奋相关
+  else if (lower.includes('三国杀') || lower.includes('游戏') || lower.includes('玩') || lower.includes('来一局')) {
     S.mood = '兴奋';
-  } else if (lower.includes('烦') || lower.includes('讨厌') || lower.includes('滚')) {
+  } 
+  // 不爽相关
+  else if (lower.includes('烦') || lower.includes('讨厌') || lower.includes('滚') || lower.includes('去死') || lower.includes('白痴')) {
     S.mood = '不爽';
-  } else if (lower.includes('开心') || lower.includes('哈哈') || lower.includes('笑')) {
+  } 
+  // 开心相关
+  else if (lower.includes('开心') || lower.includes('哈哈') || lower.includes('笑') || lower.includes('棒') || lower.includes('厉害')) {
     S.mood = '开心';
-  } else {
+  } 
+  // 保持当前情绪或恢复正常
+  else {
     S.mood = '正常';
   }
 }
@@ -238,6 +262,7 @@ function updateMood(text) {
 async function callAI(userText) {
   const gameState = {
     like: S.like,
+    trust: S.trust,
     mood: S.mood,
     inGame: G.active,
     playerHero: G.player.hero?.name,
@@ -260,23 +285,120 @@ async function callAI(userText) {
     }
 
     const data = await response.json();
-    return data.reply || generateFallbackReply();
+    return data.reply || generateLocalReply();
 
   } catch (error) {
-    console.error('Chat error:', error);
-    return generateFallbackReply();
+    console.warn('Chat API不可用，使用本地回复:', error);
+    return generateLocalReply();
   }
+}
+
+// 本地智能回复生成器
+function generateLocalReply() {
+  const lastMsg = S.history.length > 0 ? S.history[S.history.length - 1].content.toLowerCase() : '';
+  
+  // 智能关键词匹配回复
+  const smartReplies = [
+    // 问候
+    { patterns: ['你好', '早', '晚', '嗨', '哈喽', '早上好', '晚上好'], replies: [
+      '嗯，你来了啊。今天过得怎么样？',
+      '哦，是你啊。找我有什么事吗？',
+      '行啊，你终于来找我聊天了。说吧，想聊什么？'
+    ]},
+    // 三国杀相关
+    { patterns: ['三国杀', '杀', '游戏', '玩', '来一局', '对战'], replies: [
+      '来啊，谁怕谁！这次我肯定不会放水的。选个武将赶紧开始吧！',
+      '行，那就来一局！我最近练了新武将，正好试试手。你想玩什么武将？',
+      '又来？这次可别再像上次那样磨蹭了。赶紧选武将开始！'
+    ]},
+    // 睡觉/困
+    { patterns: ['睡', '困', '累', '休息', '晚安'], replies: [
+      '（打哈欠）确实有点困了。今天上课都没什么精神，早点休息也好。你也早点睡吧。',
+      '别吵我，让我睡会儿。昨晚睡得太晚了，现在困死了。有什么事明天再说吧。',
+      '嗯...困死了。今天就聊到这儿吧，明天再继续。晚安。'
+    ]},
+    // 夸赞
+    { patterns: ['厉害', '棒', '强', '牛', '好', '优秀', '厉害啊'], replies: [
+      '切，也就那样吧。我本来就挺厉害的，你才发现吗？',
+      '哦？你眼光不错嘛。不过别夸得太夸张，我会不好意思的。',
+      '行吧，勉强接受你的夸奖。不过别以为这样我就会让着你。'
+    ]},
+    // 提问
+    { patterns: ['?', '？', '什么', '怎么', '为什么', '吗', '是吗'], replies: [
+      '你觉得呢？这个问题你应该有自己的想法吧。说说看？',
+      '嗯...让我想想。这个问题还挺有意思的，让我好好考虑一下。',
+      '这个嘛，不好说。每个人都有不同的看法，你觉得呢？'
+    ]},
+    // 吃饭
+    { patterns: ['吃', '饭', '饿', '饿了', '吃饭'], replies: [
+      '行，去吃吧。正好我也有点饿了，你想吃什么？',
+      '哦，这么快就饿了？那赶紧去吃吧，别饿着了。',
+      '吃什么？是去食堂还是外面吃？我听说学校附近新开了一家店。'
+    ]},
+    // 关心
+    { patterns: ['没事吧', '还好吗', '怎么了', '没事', '你还好'], replies: [
+      '啊？我没事啊，你怎么突然这么问？是不是发生什么事了？',
+      '我挺好的，谢谢你关心。你呢，最近怎么样？',
+      '没什么大事，就是有点累。放心吧，我睡一觉就好了。'
+    ]},
+    // 道别
+    { patterns: ['再见', '拜拜', '走了', '下次'], replies: [
+      '行，再见。下次再来找我玩啊，随时欢迎。',
+      '拜拜。路上小心点，下次见！',
+      '嗯，下次见。别忘了我们下次的三国杀对局！'
+    ]}
+  ];
+  
+  // 检查匹配
+  for (const item of smartReplies) {
+    for (const pattern of item.patterns) {
+      if (lastMsg.includes(pattern)) {
+        return item.replies[Math.floor(Math.random() * item.replies.length)] + getStatusTag();
+      }
+    }
+  }
+  
+  // 默认回复
+  const defaultReplies = [
+    '哦↗，你说这个啊。我觉得还挺有意思的，继续说说？',
+    '嗯...让我想想。这个话题还挺深奥的，你是怎么想的？',
+    '行吧，既然你这么说。那我们就继续聊这个话题？',
+    '切，就这？我还以为是什么大事呢。不过既然你说了，那就聊聊吧。',
+    '你说啥？我没太听清，能再说一遍吗？',
+    '别吵，困了。今天就到这里吧，明天再聊。',
+    '那又怎样？这种事情我见多了，没什么好大惊小怪的。',
+    '随便你吧，你想怎么样就怎么样。我无所谓。',
+    '哦，这样啊。原来是这么回事，我明白了。',
+    '行，知道了。我记住了，还有什么事吗？'
+  ];
+  
+  return defaultReplies[Math.floor(Math.random() * defaultReplies.length)] + getStatusTag();
+}
+
+function getStatusTag() {
+  // 根据当前状态生成标签
+  const moods = ['正常', '开心', '兴奋', '不屑', '困倦', '疑惑'];
+  const mood = moods[Math.floor(Math.random() * moods.length)];
+  const likeChange = Math.floor(Math.random() * 3) - 1; // -1, 0, 或 1
+  const trustChange = Math.floor(Math.random() * 3) - 1; // -1, 0, 或 1
+  
+  return `<情绪(${mood})><好感变化:${likeChange >= 0 ? '+' : ''}${likeChange}><信任变化:${trustChange >= 0 ? '+' : ''}${trustChange}>`;
 }
 
 function generateFallbackReply() {
   const fallbacks = [
-    '哦↗<好感变化:0>',
-    '嗯...<好感变化:0>',
-    '行吧<好感变化:0>',
-    '切<好感变化:0>',
-    '你说啥？<好感变化:0>',
-    '别吵，困了。<好感变化:0>',
-    '就这？<好感变化:0>'
+    '哦↗<情绪(正常)><好感变化:0><信任变化:0>',
+    '嗯...<情绪(正常)><好感变化:0><信任变化:0>',
+    '行吧<情绪(正常)><好感变化:0><信任变化:0>',
+    '切<情绪(不屑)><好感变化:-1><信任变化:0>',
+    '你说啥？<情绪(疑惑)><好感变化:0><信任变化:0>',
+    '别吵，困了。<情绪(困倦)><好感变化:-1><信任变化:0>',
+    '就这？<情绪(不屑)><好感变化:0><信任变化:0>',
+    '（打哈欠）<情绪(困倦)><好感变化:0><信任变化:0>',
+    '那又怎样？<情绪(不屑)><好感变化:0><信任变化:0>',
+    '随便你。<情绪(正常)><好感变化:0><信任变化:0>',
+    '哦，这样啊。<情绪(正常)><好感变化:0><信任变化:0>',
+    '行，知道了。<情绪(正常)><好感变化:+1><信任变化:0>'
   ];
   return fallbacks[Math.floor(Math.random() * fallbacks.length)];
 }
@@ -298,17 +420,41 @@ async function sendMsg() {
   const reply = await callAI(text);
   if (typingEl && typingEl.parentNode) typingEl.parentNode.removeChild(typingEl);
   
-  // 解析好感度变化
-  const match = reply.match(/<好感变化:([+-]?\d+)>/);
+  // 解析情绪标签
   let cleanReply = reply;
-  if (match) {
-    S.like = Math.max(0, Math.min(100, S.like + parseInt(match[1])));
-    cleanReply = reply.replace(match[0], '').trim();
-    renderProfile();
+  
+  // 解析情绪
+  const moodMatch = reply.match(/<情绪\(([^)]+)\)>/);
+  let newMood = S.mood;
+  if (moodMatch) {
+    newMood = moodMatch[1];
+    cleanReply = cleanReply.replace(moodMatch[0], '').trim();
+  }
+  
+  // 解析好感度变化
+  const likeMatch = cleanReply.match(/<好感变化:([+-]?\d+)>/);
+  if (likeMatch) {
+    const likeChange = parseInt(likeMatch[1]);
+    S.like = Math.max(0, Math.min(100, S.like + likeChange));
+    cleanReply = cleanReply.replace(likeMatch[0], '').trim();
+  }
+  
+  // 解析信任度变化
+  const trustMatch = cleanReply.match(/<信任变化:([+-]?\d+)>/);
+  if (trustMatch) {
+    const trustChange = parseInt(trustMatch[1]);
+    S.trust = Math.max(0, Math.min(100, S.trust + trustChange));
+    cleanReply = cleanReply.replace(trustMatch[0], '').trim();
+  }
+  
+  // 更新情绪
+  if (moodMatch) {
+    S.mood = newMood;
   }
   
   addMsg('a', cleanReply);
   S.history.push({ role: 'assistant', content: cleanReply });
+  renderProfile();
   S.busy = false;
   
   // 保存数据
@@ -1000,7 +1146,7 @@ function endTurn() {
   setTimeout(aiTurn, 700);
 }
 
-// ═══ AI回合 ═══
+// ═══ AI回合（智能优化版） ═══
 function aiTurn() {
   if (!G.active) return;
   
@@ -1009,10 +1155,24 @@ function aiTurn() {
   G.ai.hasDrawn = true;
   addLog('兰轩摸了牌', 'log-card');
 
-  // AI技能使用
+  // AI智能策略 - 根据情况选择最优策略
+  let actionDelay = 0;
+  
+  setTimeout(() => {
+    // AI智能技能使用
+    useAISmartSkills();
+    
+    // 执行AI出牌策略
+    executeSmartAIActions();
+  }, 800);
+}
+
+function useAISmartSkills() {
+  // 关羽义绝 - 有红色牌且准备杀人时使用
   if (G.ai.hero?.id === 'guanyu' && !G.ai.skillUsed) {
+    const hasSha = G.ai.hand.some(c => c.type === 'sha');
     const redCards = G.ai.hand.filter(c => c.color === 'red');
-    if (redCards.length >= 1) {
+    if (hasSha && redCards.length >= 1) {
       const idx = G.ai.hand.indexOf(redCards[0]);
       G.ai.hand.splice(idx, 1);
       G.ai.skillUsed = true;
@@ -1022,20 +1182,31 @@ function aiTurn() {
     }
   }
   
-  if (G.ai.hero?.id === 'zhangfei' && !G.ai.skillUsed && G.ai.hand.length === 0) {
+  // 张飞怒吼 - 手牌为0且有机会时使用
+  if (G.ai.hero?.id === 'zhangfei' && !G.ai.skillUsed && G.ai.hand.length === 0 && G.player.hp <= 2) {
     G.ai.skillUsed = true;
     damage(G.player, 1);
     addLog('【怒吼】兰轩手牌为0，对你造成1点伤害！', 'log-skill');
     addMsg('a', '（大喝）接俺一吼！');
     if (checkEnd()) return;
   }
+}
 
+function executeSmartAIActions() {
   let acted = true;
-  while (acted) {
+  let actionsCount = 0;
+  const maxActions = 6; // 限制AI行动次数
+  
+  const executeNextAction = () => {
+    if (!G.active || actionsCount >= maxActions) {
+      finishAITurn();
+      return;
+    }
+    
     acted = false;
-
-    // 治疗优先
-    if (G.ai.hp < G.ai.maxHp) {
+    
+    // 策略1：血量低时优先治疗
+    if (G.ai.hp <= 2 && G.ai.hp < G.ai.maxHp) {
       const t = G.ai.hand.findIndex(c => c.type === 'tao');
       if (t >= 0) {
         G.ai.hand.splice(t, 1);
@@ -1044,24 +1215,55 @@ function aiTurn() {
         addLog('兰轩使用【桃】恢复体力', 'log-heal');
         addMsg('a', '（得意）想杀我没那么容易。');
         acted = true;
-        continue;
+        actionsCount++;
       }
     }
-
-    // 出杀
-    const s = G.ai.hand.findIndex(c => c.type === 'sha');
-    if (s >= 0 && !G.ai.shaUsed) {
-      let canUseSha = true;
-      if (G.ai.hero?.id !== 'zhangfei' && G.ai.shaUsed) canUseSha = false;
-      if (canUseSha) {
+    
+    // 策略2：有AOE牌时优先使用
+    if (!acted) {
+      const nm = G.ai.hand.findIndex(c => c.type === 'nmrr');
+      const wj = G.ai.hand.findIndex(c => c.type === 'wjqf');
+      
+      if (nm >= 0) {
+        G.ai.hand.splice(nm, 1);
+        showPlayedCard(CARDS[5], '兰轩使用【南蛮入侵】！');
+        addLog('兰轩使用【南蛮入侵】！', 'log-dmg');
+        if (!playerDefendNanMan()) {
+          damage(G.player, 1);
+          addLog('你无法抵挡，受到1点伤害！', 'log-dmg');
+        }
+        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        if (checkEnd()) return;
+        acted = true;
+        actionsCount++;
+      } else if (wj >= 0) {
+        G.ai.hand.splice(wj, 1);
+        showPlayedCard(CARDS[6], '兰轩使用【万箭齐发】！');
+        addLog('兰轩使用【万箭齐发】！', 'log-dmg');
+        if (!playerDefendWanJian()) {
+          damage(G.player, 1);
+          addLog('你无法抵挡，受到1点伤害！', 'log-dmg');
+        }
+        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        if (checkEnd()) return;
+        acted = true;
+        actionsCount++;
+      }
+    }
+    
+    // 策略3：然后出杀
+    if (!acted) {
+      const s = G.ai.hand.findIndex(c => c.type === 'sha');
+      const canUseSha = (!G.ai.shaUsed || G.ai.hero?.id === 'zhangfei');
+      if (s >= 0 && canUseSha) {
         G.ai.hand.splice(s, 1);
         G.ai.shaUsed = true;
         showPlayedCard(CARDS[0], '兰轩对你使用【杀】！');
         addLog('兰轩对你使用【杀】！', 'log-dmg');
         triggerYaJiao(G.ai);
-
+        
         let needShan = G.ai.hero?.id === 'lvbu' ? 2 : 1;
-
+        
         if (G.ai.skillState === 'yijue') {
           addLog('【义绝】效果生效，你无法使用【闪】！', 'log-skill');
           damage(G.player, 1);
@@ -1080,71 +1282,47 @@ function aiTurn() {
         }
         if (checkEnd()) return;
         acted = true;
-        continue;
+        actionsCount++;
       }
     }
-
-    // 南蛮入侵
-    const nm = G.ai.hand.findIndex(c => c.type === 'nmrr');
-    if (nm >= 0) {
-      G.ai.hand.splice(nm, 1);
-      showPlayedCard(CARDS[5], '兰轩使用【南蛮入侵】！');
-      addLog('兰轩使用【南蛮入侵】！', 'log-dmg');
-      if (!playerDefendNanMan()) {
-        damage(G.player, 1);
-        addLog('你无法抵挡，受到1点伤害！', 'log-dmg');
+    
+    // 策略4：过河拆桥 - 拆对方关键牌
+    if (!acted && G.player.hand.length > 0) {
+      const gh = G.ai.hand.findIndex(c => c.type === 'ghcq');
+      if (gh >= 0) {
+        G.ai.hand.splice(gh, 1);
+        // 智能选择要拆的牌
+        let targetIdx = 0;
+        const shaIdx = G.player.hand.findIndex(c => c.type === 'sha');
+        if (shaIdx >= 0) targetIdx = shaIdx;
+        
+        const rm = G.player.hand.splice(targetIdx, 1)[0];
+        showPlayedCard(CARDS[4], '兰轩拆掉了你的【' + rm.name + '】');
+        addLog('兰轩使用【过河拆桥】拆掉了你的【' + rm.name + '】', 'log-dmg');
+        addMsg('a', '（坏笑）嘿嘿。');
+        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        acted = true;
+        actionsCount++;
       }
-      if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
-      if (checkEnd()) return;
-      acted = true;
-      continue;
     }
-
-    // 万箭齐发
-    const wj = G.ai.hand.findIndex(c => c.type === 'wjqf');
-    if (wj >= 0) {
-      G.ai.hand.splice(wj, 1);
-      showPlayedCard(CARDS[6], '兰轩使用【万箭齐发】！');
-      addLog('兰轩使用【万箭齐发】！', 'log-dmg');
-      if (!playerDefendWanJian()) {
-        damage(G.player, 1);
-        addLog('你无法抵挡，受到1点伤害！', 'log-dmg');
+    
+    // 策略5：无中生有 - 补充手牌
+    if (!acted) {
+      const wz = G.ai.hand.findIndex(c => c.type === 'wzsy');
+      if (wz >= 0) {
+        G.ai.hand.splice(wz, 1);
+        const ex = drawFromDeck(2).map(assignColor);
+        G.ai.hand.push(...ex);
+        showPlayedCard(CARDS[3], '兰轩使用【无中生有】');
+        addLog('兰轩使用【无中生有】摸了牌', 'log-card');
+        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        acted = true;
+        actionsCount++;
       }
-      if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
-      if (checkEnd()) return;
-      acted = true;
-      continue;
     }
-
-    // 无中生有
-    const wz = G.ai.hand.findIndex(c => c.type === 'wzsy');
-    if (wz >= 0) {
-      G.ai.hand.splice(wz, 1);
-      const ex = drawFromDeck(2).map(assignColor);
-      G.ai.hand.push(...ex);
-      showPlayedCard(CARDS[3], '兰轩使用【无中生有】');
-      addLog('兰轩使用【无中生有】摸了牌', 'log-card');
-      if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
-      acted = true;
-      continue;
-    }
-
-    // 过河拆桥
-    const gh = G.ai.hand.findIndex(c => c.type === 'ghcq');
-    if (gh >= 0 && G.player.hand.length > 0) {
-      G.ai.hand.splice(gh, 1);
-      const ri = Math.floor(Math.random() * G.player.hand.length);
-      const rm = G.player.hand.splice(ri, 1)[0];
-      showPlayedCard(CARDS[4], '兰轩拆掉了你的【' + rm.name + '】');
-      addLog('兰轩使用【过河拆桥】拆掉了你的【' + rm.name + '】', 'log-dmg');
-      addMsg('a', '（坏笑）嘿嘿。');
-      if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
-      acted = true;
-      continue;
-    }
-
-    // AI吕布利驭
-    if (G.ai.hero?.id === 'lvbu' && !G.ai.skillUsed && G.ai.hand.length > 0) {
+    
+    // 策略6：吕布利驭 - 最后手段
+    if (!acted && G.ai.hero?.id === 'lvbu' && !G.ai.skillUsed && G.ai.hand.length > 0) {
       const discarded = G.ai.hand.splice(0, 1)[0];
       G.ai.skillUsed = true;
       addLog('【利驭】兰轩弃置【' + discarded.name + '】，视为使用一张【杀】', 'log-skill');
@@ -1160,10 +1338,20 @@ function aiTurn() {
       }
       if (checkEnd()) return;
       acted = true;
-      continue;
+      actionsCount++;
     }
-  }
+    
+    if (acted) {
+      setTimeout(executeNextAction, 700);
+    } else {
+      finishAITurn();
+    }
+  };
+  
+  executeNextAction();
+}
 
+function finishAITurn() {
   G.ai.hasDrawn = false;
   G.ai.shaUsed = false;
   G.ai.skillState = null;
