@@ -1,4 +1,4 @@
-# 兰轩 - 三国杀在线对战平台
+# Lanxuan-ai
 
 一个与傲娇舍友"兰轩"聊天并进行三国杀1v1对战的在线平台。
 
@@ -23,8 +23,8 @@
 
 1. 克隆项目
 ```bash
-git clone <your-repo-url>
-cd lanxuan-game
+git clone https://github.com/Arisemoss/Lanxuan-ai.git
+cd Lanxuan-ai
 ```
 
 2. 安装依赖
@@ -61,7 +61,6 @@ npm run dev
 ## 项目结构
 
 ```
-lanxuan-game/
 ├── api/                    # 后端API
 │   ├── server.js          # Express服务器入口
 │   ├── chat.js            # 聊天API（隐藏密钥）
