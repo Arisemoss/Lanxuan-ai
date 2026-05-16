@@ -6,6 +6,7 @@
 // ═══ 全局状态 ═══
 const S = {
   like: 59,
+  trust: 50,
   mood: '正常',
   history: [],
   busy: false,
@@ -104,6 +105,7 @@ function initUserId() {
 async function saveUserData() {
   const data = {
     like: S.like,
+    trust: S.trust,
     mood: S.mood,
     history: S.history.slice(-50) // 只保存最近50条
   };
@@ -130,6 +132,7 @@ async function loadUserData() {
     try {
       const data = JSON.parse(localData);
       S.like = data.like || 59;
+      S.trust = data.trust || 50;
       S.mood = data.mood || '正常';
       S.history = data.history || [];
       renderProfile();
@@ -145,6 +148,7 @@ async function loadUserData() {
       const result = await res.json();
       if (result.data) {
         S.like = result.data.like || S.like;
+        S.trust = result.data.trust || S.trust;
         S.mood = result.data.mood || S.mood;
         S.history = result.data.history || S.history;
         renderProfile();
@@ -169,13 +173,24 @@ function initClock() {
 // ═══ 个人资料渲染 ═══
 function renderProfile() {
   document.getElementById('likeNum').textContent = S.like;
-  const bar = document.getElementById('likeBar');
-  bar.style.width = S.like + '%';
+  const likeBar = document.getElementById('likeBar');
+  likeBar.style.width = S.like + '%';
   
   // 根据好感度设置颜色
-  if (S.like >= 80) bar.style.background = 'var(--green)';
-  else if (S.like >= 60) bar.style.background = 'var(--accent)';
-  else bar.style.background = 'var(--text-3)';
+  if (S.like >= 80) likeBar.style.background = 'var(--green)';
+  else if (S.like >= 60) likeBar.style.background = 'var(--accent)';
+  else likeBar.style.background = 'var(--text-3)';
+  
+  // 信任度
+  const trustNum = document.getElementById('trustNum');
+  if (trustNum) trustNum.textContent = S.trust;
+  const trustBar = document.getElementById('trustBar');
+  if (trustBar) {
+    trustBar.style.width = S.trust + '%';
+    if (S.trust >= 80) trustBar.style.background = 'var(--cyan)';
+    else if (S.trust >= 60) trustBar.style.background = 'var(--accent)';
+    else trustBar.style.background = 'var(--text-3)';
+  }
   
   // 等级
   const tier = getTier(S.like);
@@ -247,6 +262,7 @@ function updateMood(text) {
 async function callAI(userText) {
   const gameState = {
     like: S.like,
+    trust: S.trust,
     mood: S.mood,
     inGame: G.active,
     playerHero: G.player.hero?.name,
@@ -307,17 +323,41 @@ async function sendMsg() {
   const reply = await callAI(text);
   if (typingEl && typingEl.parentNode) typingEl.parentNode.removeChild(typingEl);
   
-  // 解析好感度变化
-  const match = reply.match(/<好感变化:([+-]?\d+)>/);
+  // 解析情绪标签
   let cleanReply = reply;
-  if (match) {
-    S.like = Math.max(0, Math.min(100, S.like + parseInt(match[1])));
-    cleanReply = reply.replace(match[0], '').trim();
-    renderProfile();
+  
+  // 解析情绪
+  const moodMatch = reply.match(/<情绪\(([^)]+)\)>/);
+  let newMood = S.mood;
+  if (moodMatch) {
+    newMood = moodMatch[1];
+    cleanReply = cleanReply.replace(moodMatch[0], '').trim();
+  }
+  
+  // 解析好感度变化
+  const likeMatch = cleanReply.match(/<好感变化:([+-]?\d+)>/);
+  if (likeMatch) {
+    const likeChange = parseInt(likeMatch[1]);
+    S.like = Math.max(0, Math.min(100, S.like + likeChange));
+    cleanReply = cleanReply.replace(likeMatch[0], '').trim();
+  }
+  
+  // 解析信任度变化
+  const trustMatch = cleanReply.match(/<信任变化:([+-]?\d+)>/);
+  if (trustMatch) {
+    const trustChange = parseInt(trustMatch[1]);
+    S.trust = Math.max(0, Math.min(100, S.trust + trustChange));
+    cleanReply = cleanReply.replace(trustMatch[0], '').trim();
+  }
+  
+  // 更新情绪
+  if (moodMatch) {
+    S.mood = newMood;
   }
   
   addMsg('a', cleanReply);
   S.history.push({ role: 'assistant', content: cleanReply });
+  renderProfile();
   S.busy = false;
   
   // 保存数据
