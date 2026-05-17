@@ -1,42 +1,108 @@
 /**
  * 数据持久化API
- * 支持保存和加载用户数据
+ * 支持保存和加载用户数据 - 使用本地JSON文件存储
  */
 
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 
-// 内存存储（生产环境应使用数据库）
-const dataStore = new Map();
+const DATA_DIR = path.join(__dirname, '../data');
 
-/**
- * POST /api/data/save
- * 保存用户数据
- */
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function getDataFilePath(userId) {
+  const safeId = userId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return path.join(DATA_DIR, `${safeId}.json`);
+}
+
+function readData() {
+  const files = fs.readdirSync(DATA_DIR).filter(f => f.endsWith('.json'));
+  const allData = {};
+  files.forEach(file => {
+    try {
+      const filePath = path.join(DATA_DIR, file);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const data = JSON.parse(content);
+      const userId = file.replace('.json', '');
+      allData[userId] = data;
+    } catch (e) {
+      console.error(`读取文件失败: ${file}`, e);
+    }
+  });
+  return allData;
+}
+
+function writeData(userId, data) {
+  const filePath = getDataFilePath(userId);
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    return true;
+  } catch (e) {
+    console.error(`写入文件失败: ${filePath}`, e);
+    return false;
+  }
+}
+
+function readUserData(userId) {
+  const filePath = getDataFilePath(userId);
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(content);
+    }
+    return null;
+  } catch (e) {
+    console.error(`读取用户数据失败: ${userId}`, e);
+    return null;
+  }
+}
+
+function deleteUserData(userId) {
+  const filePath = getDataFilePath(userId);
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.error(`删除用户数据失败: ${userId}`, e);
+    return false;
+  }
+}
+
 router.post('/save', (req, res) => {
   try {
     const { userId, data } = req.body;
-    
+
     if (!userId) {
       return res.status(400).json({ error: '缺少用户ID' });
     }
 
-    // 验证数据大小（限制1MB）
     const dataSize = JSON.stringify(data).length;
     if (dataSize > 1024 * 1024) {
       return res.status(400).json({ error: '数据大小超过限制' });
     }
 
-    // 保存数据
-    dataStore.set(userId, {
+    const savedData = {
       ...data,
       updatedAt: new Date().toISOString()
-    });
+    };
+
+    const success = writeData(userId, savedData);
+
+    if (!success) {
+      return res.status(500).json({ error: '保存数据失败' });
+    }
 
     res.json({
       success: true,
       message: '数据保存成功',
-      updatedAt: new Date().toISOString()
+      updatedAt: savedData.updatedAt
     });
 
   } catch (error) {
@@ -45,20 +111,16 @@ router.post('/save', (req, res) => {
   }
 });
 
-/**
- * GET /api/data/load/:userId
- * 加载用户数据
- */
 router.get('/load/:userId', (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     if (!userId) {
       return res.status(400).json({ error: '缺少用户ID' });
     }
 
-    const data = dataStore.get(userId);
-    
+    const data = readUserData(userId);
+
     if (!data) {
       return res.json({
         success: true,
@@ -78,20 +140,16 @@ router.get('/load/:userId', (req, res) => {
   }
 });
 
-/**
- * DELETE /api/data/delete/:userId
- * 删除用户数据
- */
 router.delete('/delete/:userId', (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     if (!userId) {
       return res.status(400).json({ error: '缺少用户ID' });
     }
 
-    const deleted = dataStore.delete(userId);
-    
+    const deleted = deleteUserData(userId);
+
     res.json({
       success: true,
       deleted: deleted,
@@ -105,3 +163,7 @@ router.delete('/delete/:userId', (req, res) => {
 });
 
 module.exports = router;
+module.exports.readData = readData;
+module.exports.writeData = writeData;
+module.exports.readUserData = readUserData;
+module.exports.deleteUserData = deleteUserData;
