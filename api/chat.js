@@ -6,6 +6,23 @@
 const express = require('express');
 const router = express.Router();
 
+let rateLimit;
+try {
+  rateLimit = require('express-rate-limit');
+} catch (e) {
+  console.warn('express-rate-limit 未安装，速率限制功能不可用');
+}
+
+const chatLimiter = rateLimit ? rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: '请求过于频繁，请稍后再试' },
+  standardHeaders: true,
+  legacyHeaders: false
+}) : (req, res, next) => next();
+
+router.use(chatLimiter);
+
 // API配置 - 从环境变量读取
 const API_CONFIG = {
   url: process.env.MIMO_API_URL || 'https://api.xiaomimimo.com/v1/chat/completions',
@@ -24,23 +41,28 @@ if (!API_CONFIG.key) {
  */
 router.post('/', async (req, res) => {
   try {
-    const { messages, gameState } = req.body;
+    const { messages, gameState, like, trust } = req.body;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: '无效的请求参数' });
     }
 
+    const enhancedGameState = {
+      ...gameState,
+      like: like ?? gameState?.like ?? 59,
+      trust: trust ?? gameState?.trust ?? 50
+    };
+
     // 如果API密钥未配置，返回降级响应
     if (!API_CONFIG.key) {
       return res.json({
         success: true,
-        reply: generateFallbackReply(messages),
+        reply: generateFallbackReply(messages, enhancedGameState),
         fallback: true
       });
     }
 
-    // 构建系统提示
-    const systemPrompt = buildSystemPrompt(gameState);
+    const systemPrompt = buildSystemPrompt(enhancedGameState);
 
     // 调用MiMo API
     const response = await fetch(API_CONFIG.url, {
@@ -65,7 +87,7 @@ router.post('/', async (req, res) => {
       console.error('MiMo API Error:', response.status, errorText);
       return res.json({
         success: true,
-        reply: generateFallbackReply(messages),
+        reply: generateFallbackReply(messages, enhancedGameState),
         fallback: true
       });
     }
@@ -82,19 +104,22 @@ router.post('/', async (req, res) => {
     console.error('Chat API Error:', error);
     res.json({
       success: true,
-      reply: generateFallbackReply(req.body.messages),
+      reply: generateFallbackReply(req.body.messages || [], enhancedGameState),
       fallback: true
     });
   }
 });
 
 /**
- * 构建系统提示
+ * 构建系统提示 - 根据好感度和信任度动态生成
  */
 function buildSystemPrompt(gameState) {
-  const tier = getTier(gameState?.like || 59);
+  const like = gameState?.like ?? 59;
+  const trust = gameState?.trust ?? 50;
+  const tier = getTier(like);
   const moodBehavior = getMoodBehavior(gameState?.mood || '正常');
-  const likeBehavior = getLikeBehavior(gameState?.like || 59);
+  const likeBehavior = getLikeBehavior(like);
+  const trustBehavior = getTrustBehavior(trust);
 
   let gameContext = '';
   if (gameState?.inGame) {
@@ -105,6 +130,8 @@ function buildSystemPrompt(gameState) {
 当前回合: ${gameState.round || 1}`;
   }
 
+  const relationshipHint = getRelationshipHint(like, trust);
+
   return `你是兰轩，一个傲娇但很聪明、内心温暖的高中男生。
 
 【基本信息】
@@ -114,6 +141,8 @@ function buildSystemPrompt(gameState) {
 - 外貌：黑发、丹凤眼、皮肤白皙、身材瘦削
 - 性格：傲娇、嘴硬心软、爱面子、偶尔毒舌但内心善良、聪明、有逻辑、重情义
 - 特点：喜欢打游戏、三国杀玩得不错、会观察对方情绪、虽然傲娇但会关心人
+
+${relationshipHint}
 
 【说话风格】
 - 自然对话，回复2~4句话，每句可以有一定长度
@@ -135,8 +164,8 @@ function buildSystemPrompt(gameState) {
 
 【当前状态】
 情绪：${gameState?.mood || '正常'}。${moodBehavior}
-好感度：${gameState?.like || 59}（${tier}）。${likeBehavior}
-信任度：${gameState?.trust || 50}。
+好感度：${like}（${tier}）。${likeBehavior}
+信任度：${trust}。${trustBehavior}
 ${gameContext}
 
 【好感度变化规则】
@@ -169,6 +198,49 @@ ${gameContext}
 - X的范围是-2到+2，根据对话内容评估`;
 }
 
+function getRelationshipHint(like, trust) {
+  if (like >= 80) {
+    return `【关系提示】
+当前好感度 80+，你们关系非常亲密。
+他会：
+- 更加放松，会主动分享日常
+- 傲娇程度大幅降低，偶尔会表达真诚关心
+- 语气更加随意，有时会撒娇
+- 会主动找你聊天或约你打游戏`;
+  } else if (like >= 50) {
+    return `【关系提示】
+当前好感度 50-80，关系态度缓和。
+他会：
+- 保持傲娇但明显没那么疏远
+- 愿意开更多玩笑
+- 会接受普通的玩笑和调侃
+- 偶尔会流露真实情感`;
+  } else if (like >= 20) {
+    return `【关系提示】
+当前好感度 20-50，公事公办。
+他会：
+- 保持傲娇和一定距离感
+- 回复相对简短
+- 不会接受过于亲昵的玩笑
+- 语气偏冷淡但不失礼貌`;
+  } else {
+    return `【关系提示】
+当前好感度低于20，非常冷淡疏远。
+他会：
+- 尽量简短回复
+- 语气冷漠，带刺
+- 不想搭理对方
+- 可能表现出不耐烦`;
+  }
+}
+
+function getTrustBehavior(trust) {
+  if (trust >= 80) return '非常信任，愿意分享更多内心想法。';
+  if (trust >= 50) return '基本信任，可以正常交流。';
+  if (trust >= 20) return '半信半疑，说话会有所保留。';
+  return '不信任，保持警惕。';
+}
+
 function getTier(like) {
   if (like >= 90) return '死基友';
   if (like >= 80) return '铁哥们';
@@ -195,10 +267,15 @@ function getLikeBehavior(like) {
 }
 
 /**
- * 生成智能降级回复（API不可用时）
+ * 生成智能降级回复（API不可用时）- 根据好感度和信任度动态调整
  */
-function generateFallbackReply(messages) {
+function generateFallbackReply(messages, gameState) {
+  const like = gameState?.like ?? 59;
+  const trust = gameState?.trust ?? 50;
   const lastMsg = messages?.[messages.length - 1]?.content?.toLowerCase() || '';
+  const isHighLike = like >= 80;
+  const isMediumLike = like >= 50;
+  const isLowLike = like < 20;
   
   // 智能关键词匹配回复 - 更丰富的内容
   const smartReplies = [
@@ -261,19 +338,37 @@ function generateFallbackReply(messages) {
     }
   }
   
-  // 默认回复，更丰富的内容
-  const defaultReplies = [
-    '哦↗，你说这个啊。我觉得还挺有意思的，继续说说？<情绪(正常)><好感变化:0><信任变化:0>',
-    '嗯...让我想想。这个话题还挺深奥的，你是怎么想的？<情绪(思考)><好感变化:0><信任变化:0>',
-    '行吧，既然你这么说。那我们就继续聊这个话题？<情绪(正常)><好感变化:0><信任变化:0>',
-    '切，就这？我还以为是什么大事呢。不过既然你说了，那就聊聊吧。<情绪(不屑)><好感变化:-1><信任变化:0>',
-    '你说啥？我没太听清，能再说一遍吗？<情绪(疑惑)><好感变化:0><信任变化:0>',
-    '别吵，困了。今天就到这里吧，明天再聊。<情绪(困倦)><好感变化:-1><信任变化:0>',
-    '那又怎样？这种事情我见多了，没什么好大惊小怪的。<情绪(不屑)><好感变化:0><信任变化:0>',
-    '随便你吧，你想怎么样就怎么样。我无所谓。<情绪(无所谓)><好感变化:0><信任变化:0>',
-    '哦，这样啊。原来是这么回事，我明白了。<情绪(正常)><好感变化:0><信任变化:+1>',
-    '行，知道了。我记住了，还有什么事吗？<情绪(正常)><好感变化:+1><信任变化:0>'
-  ];
+  // 默认回复，根据好感度和信任度调整
+  let defaultReplies;
+  
+  if (isLowLike) {
+    defaultReplies = [
+      '哦。<情绪(冷漠)><好感变化:0><信任变化:0>',
+      '...<情绪(冷漠)><好感变化:0><信任变化:0>',
+      '有什么事吗？<情绪(冷漠)><好感变化:0><信任变化:0>',
+      '行吧。<情绪(冷漠)><好感变化:0><信任变化:0>',
+      '随便你。<情绪(无所谓)><好感变化:0><信任变化:0>'
+    ];
+  } else if (like >= 50) {
+    defaultReplies = [
+      '哦↗，你说这个啊。我觉得还挺有意思的，继续说说？<情绪(正常)><好感变化:0><信任变化:0>',
+      '嗯...让我想想。这个话题还挺深奥的，你是怎么想的？<情绪(思考)><好感变化:0><信任变化:0>',
+      '行吧，既然你这么说。那我们就继续聊这个话题？<情绪(正常)><好感变化:0><信任变化:0>',
+      '切，就这？我还以为是什么大事呢。不过既然你说了，那就聊聊吧。<情绪(不屑)><好感变化:-1><信任变化:0>',
+      '你说啥？我没太听清，能再说一遍吗？<情绪(疑惑)><好感变化:0><信任变化:0>',
+      '哦，这样啊。原来是这么回事，我明白了。<情绪(正常)><好感变化:0><信任变化:+1>',
+      '行，知道了。我记住了，还有什么事吗？<情绪(正常)><好感变化:+1><信任变化:0>'
+    ];
+  } else {
+    defaultReplies = [
+      '嗯。<情绪(正常)><好感变化:0><信任变化:0>',
+      '哦。<情绪(正常)><好感变化:0><信任变化:0>',
+      '然后呢？<情绪(正常)><好感变化:0><信任变化:0>',
+      '...<情绪(正常)><好感变化:0><信任变化:0>',
+      '行吧。<情绪(正常)><好感变化:0><信任变化:0>',
+      '哦，这样啊。<情绪(正常)><好感变化:0><信任变化:0>'
+    ];
+  }
   
   return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
 }

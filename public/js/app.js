@@ -276,7 +276,9 @@ async function callAI(userText) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messages: S.history,
-        gameState
+        gameState,
+        like: S.like,
+        trust: S.trust
       })
     });
 
@@ -1389,3 +1391,4 @@ window.playCard = playCard;
 window.endTurn = endTurn;
 window.endGame = endGame;
 window.closeOverlay = closeOverlay;
+
