@@ -10,6 +10,7 @@
   --border: rgba(148,163,184,.2);
   --accent: #3b82f6;
   --cyan: #0ea5e9;
+  --amber: #d97706;
   --green: #22c55e;
   --red: #ef4444;
   --r: 8px;
@@ -218,6 +219,205 @@ header {
   flex-direction: column;
   overflow: hidden;
   position: relative;
+}
+
+/* ═══ Share Hero ═══ */
+.share-hero {
+  position: relative;
+  min-height: 250px;
+  padding: 24px 28px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 22px;
+  align-items: center;
+  background:
+    linear-gradient(115deg, rgba(255,255,255,.96) 0%, rgba(239,246,255,.94) 58%, rgba(224,242,254,.92) 100%),
+    radial-gradient(circle at 92% 12%, rgba(14,165,233,.22), transparent 34%);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.share-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(15,23,42,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,23,42,.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(90deg, #000 0%, transparent 92%);
+  pointer-events: none;
+}
+
+.share-copy,
+.share-visual {
+  position: relative;
+  z-index: 1;
+}
+
+.share-kicker {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(14,165,233,.1);
+  color: #0369a1;
+  border: 1px solid rgba(14,165,233,.16);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+.share-copy h2 {
+  margin-top: 12px;
+  max-width: 620px;
+  font-family: var(--serif);
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: 0;
+  color: #0f172a;
+}
+
+.share-copy p {
+  margin-top: 12px;
+  max-width: 680px;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.share-actions {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.share-primary,
+.share-secondary,
+.copy-link-btn {
+  min-height: 38px;
+  padding: 0 18px;
+  border-radius: var(--r);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s, background .2s;
+}
+
+.share-primary {
+  border: 1px solid rgba(37,99,235,.18);
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 12px 26px rgba(37,99,235,.18);
+}
+
+.share-secondary,
+.copy-link-btn {
+  border: 1px solid rgba(14,165,233,.2);
+  background: rgba(255,255,255,.82);
+  color: #075985;
+}
+
+.share-primary:hover,
+.share-secondary:hover,
+.copy-link-btn:hover {
+  transform: translateY(-1px);
+}
+
+.share-visual {
+  height: 205px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(59,130,246,.16);
+  box-shadow: 0 24px 48px rgba(30,64,175,.12);
+}
+
+.share-avatar {
+  position: absolute;
+  left: 22px;
+  top: 22px;
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #172554, #0f172a);
+  color: #7dd3fc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.share-bubble {
+  position: absolute;
+  left: 92px;
+  top: 26px;
+  right: 18px;
+  padding: 12px 14px;
+  border-radius: 14px 14px 14px 4px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  border: 1px solid #bfdbfe;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mini-card {
+  position: absolute;
+  width: 70px;
+  height: 96px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 900;
+  box-shadow: 0 12px 24px rgba(15,23,42,.12);
+}
+
+.mini-sha {
+  left: 76px;
+  bottom: 22px;
+  transform: rotate(-7deg);
+  color: #dc2626;
+  background: linear-gradient(160deg, #fee2e2, #fca5a5, #fee2e2);
+}
+
+.mini-shan {
+  left: 136px;
+  bottom: 30px;
+  transform: rotate(8deg);
+  color: #16a34a;
+  background: linear-gradient(160deg, #dcfce7, #86efac, #dcfce7);
+}
+
+.share-meter {
+  position: absolute;
+  right: 20px;
+  bottom: 26px;
+  width: 104px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+}
+
+.share-meter span {
+  display: block;
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.share-meter strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 24px;
+  color: var(--accent);
 }
 
 /* ═══ Chat Panel ═══ */
@@ -1080,6 +1280,40 @@ header {
   transform: translateY(-1px);
 }
 
+.share-box {
+  margin: 0 16px 16px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.share-box-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.share-box-desc {
+  margin-top: 7px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+.copy-link-btn {
+  width: 100%;
+  margin-top: 12px;
+  background: #ffffff;
+}
+
+.copy-status {
+  min-height: 16px;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--accent);
+}
+
 /* ═══ Overlay ═══ */
 .overlay {
   position: fixed;
@@ -1202,14 +1436,80 @@ header {
   body {
     grid-template-columns: 200px 1fr 240px;
   }
+
+  .share-hero {
+    grid-template-columns: minmax(0, 1fr) 240px;
+  }
+
+  .share-copy h2 {
+    font-size: 29px;
+  }
 }
 
 @media (max-width: 780px) {
   body {
-    grid-template-columns: 1fr;
-    grid-template-rows: 52px 1fr;
+    display: flex;
+    flex-direction: column;
   }
+
+  header {
+    min-height: 52px;
+  }
+
   .sidebar-left, .sidebar-right {
     display: none;
+  }
+
+  .center-col {
+    min-height: calc(100vh - 52px);
+  }
+
+  .share-hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    padding: 22px 16px;
+  }
+
+  .share-visual {
+    display: none;
+  }
+
+  .share-copy h2 {
+    font-size: 27px;
+  }
+
+  .share-copy p {
+    font-size: 13px;
+  }
+
+  .share-actions {
+    flex-direction: column;
+  }
+
+  .share-primary,
+  .share-secondary {
+    width: 100%;
+  }
+
+  .chat-scroll {
+    padding: 16px;
+  }
+
+  .chat-input-area {
+    padding: 12px;
+  }
+
+  .input-wrap {
+    display: grid;
+    grid-template-columns: 1fr 78px;
+  }
+
+  .chat-input {
+    grid-column: 1 / -1;
+  }
+
+  .game-toggle-btn,
+  .send-btn {
+    min-height: 38px;
   }
 }

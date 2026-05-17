@@ -3,22 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="兰轩 - 与傲娇舍友兰轩聊天对战，三国杀1v1在线对战平台，支持智能对话和好感度系统">
+  <meta name="description" content="兰轩 - 一个可以直接分享的聊天与三国杀1v1网页，支持AI对话、好感度、信任度、武将技能和在线对局。">
   <meta name="keywords" content="三国杀, 聊天, AI对话, 在线游戏, 傲娇, 宿舍">
   <meta name="author" content="兰轩">
   
   <!-- Open Graph / 社交分享 -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://lanxuan-game.vercel.app/">
-  <meta property="og:title" content="兰轩 - 三国杀1v1在线对战平台">
-  <meta property="og:description" content="与傲娇舍友兰轩聊天对战！智能AI对话，支持好感度和信任度系统，还有紧张刺激的三国杀1v1对战等你来玩！">
-  <meta property="og:image" content="https://via.placeholder.com/1200x630/3b82f6/ffffff?text=兰轩-三国杀对战">
+  <meta property="og:url" content="https://lanxuanai.netlify.app/">
+  <meta property="og:title" content="兰轩 - 聊天与三国杀1v1分享页">
+  <meta property="og:description" content="能聊天，也能打一局三国杀。AI对话、关系状态、武将技能和1v1对局已经整合到一个可分享网页。">
+  <meta property="og:image" content="https://lanxuanai.netlify.app/assets/share-card.svg">
   
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="兰轩 - 三国杀1v1在线对战平台">
-  <meta name="twitter:description" content="与傲娇舍友兰轩聊天对战！智能AI对话，支持好感度和信任度系统，还有紧张刺激的三国杀1v1对战等你来玩！">
-  <meta name="twitter:image" content="https://via.placeholder.com/1200x630/3b82f6/ffffff?text=兰轩-三国杀对战">
+  <meta name="twitter:title" content="兰轩 - 聊天与三国杀1v1分享页">
+  <meta name="twitter:description" content="能聊天，也能打一局三国杀。AI对话、关系状态、武将技能和1v1对局已经整合到一个可分享网页。">
+  <meta name="twitter:image" content="https://lanxuanai.netlify.app/assets/share-card.svg">
   
   <title>兰轩 - 三国杀1v1在线对战平台</title>
   <link rel="stylesheet" href="css/style.css">
@@ -78,6 +78,24 @@
 </div>
 
 <div class="center-col">
+  <section class="share-hero" id="shareHero">
+    <div class="share-copy">
+      <span class="share-kicker">最近更新 · 可直接转发</span>
+      <h2>兰轩：能聊天，也能打一局三国杀</h2>
+      <p>AI 对话、好感度、信任度、武将技能和 1v1 对局已经放在同一个网页里。发给朋友后，对方打开就能开始互动。</p>
+      <div class="share-actions">
+        <button class="share-primary" type="button" onclick="scrollToChat()">开始体验</button>
+        <button class="share-secondary" type="button" onclick="sharePage()">分享网页</button>
+      </div>
+    </div>
+    <div class="share-visual" aria-label="兰轩网页功能预览">
+      <div class="share-avatar">兰</div>
+      <div class="share-bubble">“就这？要不要来一局？”</div>
+      <div class="mini-card mini-sha">杀</div>
+      <div class="mini-card mini-shan">闪</div>
+      <div class="share-meter"><span>好感度</span><strong>59</strong></div>
+    </div>
+  </section>
   <div class="chat-panel" id="chatPanel">
     <div class="chat-scroll" id="chatScroll"></div>
     <div class="chat-input-area">
@@ -167,6 +185,13 @@
     <div class="preview-title">三国杀 1v1</div>
     <div class="preview-desc">与兰轩来一场紧张刺激的三国杀对决。选择武将，运用技能击败对手！</div>
     <button class="preview-start-btn" onclick="showHeroSelect()">选择武将</button>
+  </div>
+  <div class="share-box">
+    <div class="section-label">分享</div>
+    <div class="share-box-title">把这个网页发给朋友</div>
+    <div class="share-box-desc">预览卡片已更新，适合直接转发到聊天工具或社交平台。</div>
+    <button class="copy-link-btn" type="button" onclick="sharePage()">复制 / 分享链接</button>
+    <div class="copy-status" id="copyStatus" aria-live="polite"></div>
   </div>
   <div class="game-log" id="gameLog" style="display:none"></div>
 </div>

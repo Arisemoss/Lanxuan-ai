@@ -170,6 +170,36 @@ function initClock() {
   setInterval(updateClock, 1000);
 }
 
+function getShareUrl() {
+  return window.location.origin + window.location.pathname;
+}
+
+async function sharePage() {
+  const shareData = {
+    title: '兰轩 - 聊天与三国杀1v1分享页',
+    text: '能聊天，也能打一局三国杀。打开兰轩网页，和他聊两句或开始一场1v1对局。',
+    url: getShareUrl()
+  };
+  const status = document.getElementById('copyStatus');
+
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+      if (status) status.textContent = '分享面板已打开';
+      return;
+    }
+    await navigator.clipboard.writeText(shareData.url);
+    if (status) status.textContent = '链接已复制';
+  } catch (error) {
+    if (status) status.textContent = '复制失败，请手动复制地址栏链接';
+  }
+}
+
+function scrollToChat() {
+  document.getElementById('chatPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => document.getElementById('chatInput')?.focus(), 320);
+}
+
 // ═══ 个人资料渲染 ═══
 function renderProfile() {
   document.getElementById('likeNum').textContent = S.like;
@@ -1391,4 +1421,3 @@ window.playCard = playCard;
 window.endTurn = endTurn;
 window.endGame = endGame;
 window.closeOverlay = closeOverlay;
-
