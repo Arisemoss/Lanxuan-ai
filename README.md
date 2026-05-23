@@ -2,7 +2,7 @@
 
 > 和傲娇舍友兰轩聊天、对战！智能 AI 对话 × 好感度 × 三国杀，一个链接就能玩。
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+[![Deploy on Sealos](https://raw.githubusercontent.com/labring-actions/templates/main/Deploy-on-Sealos.svg)](https://cloud.sealos.io/?openapp=system-template%3FtemplateName%3Dnodejs)
 
 ---
 
@@ -17,18 +17,33 @@
 
 ---
 
-## 🚀 快速部署
+## 🚀 快速部署（国内免费）
 
-### Render（推荐 — 免费）
+### 方式一：Sealos（推荐 🇨🇳）
 
-1. 点击上方 **Deploy to Render** 按钮
-2. 连接 GitHub，选择本仓库
-3. Render 自动识别 `npm start`，点击 **Create Web Service**
-4. 等 2 分钟，获得 `https://你的项目.onrender.com` 链接 ✅
+[Sealos](https://sealos.run) 是国内云操作系统，**免费额度足够用，国内访问飞快**。
 
-> Render 免费计划有 15 分钟空闲休眠，首次访问会稍慢唤醒。
+1. 打开 [cloud.sealos.io](https://cloud.sealos.io)，微信扫码登录
+2. **应用管理 → 新建应用**
+3. 选择 **从 GitHub 导入**，填 `Arisemoss/Lanxuan-ai`
+4. 框架选 **Docker**，端口填 `3000`
+5. 点击 **部署**，等 2 分钟拿链接 ✅
 
-### 本地运行
+> 💡 免费额度：5 个容器实例，完全够用。数据存在容器内不会丢。
+
+### 方式二：Cloudflare Pages（全球加速）
+
+虽是国外平台，但国内访问可用，且**完全免费不限量**。
+
+1. 打开 [dash.cloudflare.com](https://dash.cloudflare.com)，注册登录
+2. **Workers & Pages → Create → Pages → Connect to Git**
+3. 选 `Arisemoss/Lanxuan-ai`
+4. **Build command**：`npm run build`，**Output directory**：`public`
+5. 另外创建 **Workers** 部署 `api/` 为后端 API
+
+> 📖 详细步骤见 [DEPLOY.md](./DEPLOY.md)
+
+### 方式三：本地运行
 
 ```bash
 git clone https://github.com/Arisemoss/Lanxuan-ai.git
@@ -67,8 +82,8 @@ npm start          # → http://localhost:3000
 
 - **前端** HTML5 · CSS3 · Vanilla JS
 - **后端** Node.js · Express
-- **部署** Render / Railway / 自建
-- **存储** 浏览器 localStorage（数据不会丢失）
+- **部署** Sealos / Cloudflare / 自建
+- **存储** 浏览器 localStorage（数据不丢失）
 
 ---
 
@@ -83,8 +98,9 @@ npm start          # → http://localhost:3000
 │   ├── server.js     # Express 入口
 │   ├── chat.js       # AI 聊天 API
 │   └── data.js       # 数据 API
+├── Dockerfile        # Sealos 部署配置
 ├── package.json
-└── render.yaml       # Render 部署配置
+└── DEPLOY.md         # 详细部署指南
 ```
 
 ---
