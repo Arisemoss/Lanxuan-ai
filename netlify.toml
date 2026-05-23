@@ -1,4 +1,0 @@
-[build]
-  command = "mkdir -p dist && cp -r public/* dist/"
-  publish = "dist"
-  functions = "netlify/functions"

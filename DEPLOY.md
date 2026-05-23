@@ -1,59 +1,95 @@
-# 🚀 兰轩 · 部署指南
+# 🚀 兰轩 · 国内部署指南
 
-几种免费部署方式，任选其一。
+几种**国内免费可用**的部署方式，任选其一。
 
 ---
 
-## 方式一：Render（推荐）
+## 方式一：Sealos 🇨🇳（首选推荐）
 
-Render 原生支持 Node.js，免费计划足够日常使用。
+[Sealos](https://sealos.run) 是国产云操作系统，国内访问速度最快，**免费额度足够**。
 
 ### 一键部署
 
-点击仓库 README 中的 **Deploy to Render** 按钮，或：
+1. 打开 [cloud.sealos.io](https://cloud.sealos.io)
+2. 微信扫码登录，进入 **应用管理**
+3. 点 **新建应用 → 从 GitHub 导入**
+4. 仓库填 `Arisemoss/Lanxuan-ai`
+5. 框架选 **Docker**，端口填 `3000`
+6. 点 **部署**，等 2 分钟
 
-1. 打开 [render.com](https://render.com)，GitHub 登录
-2. **New → Web Service**，选择 `Arisemoss/Lanxuan-ai`
-3. 确认配置：
-   - **Runtime**: Node
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-4. 点击 **Create Web Service**
+拿到 `https://xxx.cloud.sealos.io` 链接就能玩了 ✅
 
-### 免费计划说明
+### 免费额度
 
-| 特性 | 限制 |
+| 项目 | 额度 |
 |------|------|
-| 运行时间 | 750 小时/月 ✅ 够用 |
-| 休眠 | 15 分钟无请求后休眠，下次请求自动唤醒（约 30 秒） |
-| 带宽 | 100 GB/月 |
-| 自定义域名 | 支持 ✅ |
+| 容器实例 | 5 个 |
+| 存储 | 20 GB |
+| 流量 | 够个人用 |
+| 休眠 | ❌ 不会休眠 |
 
-> 💡 可以用 [UptimeRobot](https://uptimerobot.com) 或 [Cron-job.org](https://cron-job.org) 每 10 分钟 ping 一次，避免休眠。
-
----
-
-## 方式二：Railway
-
-1. 打开 [railway.app](https://railway.app)，GitHub 登录
-2. **New Project → Deploy from GitHub repo**
-3. 选择 `Arisemoss/Lanxuan-ai`
-4. 自动部署，获得 `xxx.up.railway.app` 链接
-
-> Railway 免费计划每月 $5 额度，够用。
+> 🎉 不用折腾，直接部署就行。容器是持久化的，游戏存档不会丢。
 
 ---
 
-## 方式三：自建服务器
+## 方式二：Cloudflare Pages + Workers
+
+Cloudflare 虽是国外公司，但国内访问可用，**完全免费不限量**。
+
+### 第一步：部署前端（Pages）
+
+1. 打开 [dash.cloudflare.com](https://dash.cloudflare.com)，注册登录
+2. 左侧 **Workers & Pages → Overview → Create → Pages**
+3. **Connect to Git**，授权 GitHub，选 `Arisemoss/Lanxuan-ai`
+4. 构建设置：
+   - **Framework preset**: None
+   - **Build command**: `npm run build`
+   - **Output directory**: `public`
+5. 点 **Save and Deploy**
+
+### 第二步：部署后端（Workers）
+
+1. 安装 Wrangler CLI：
+   ```bash
+   npm install -g wrangler
+   ```
+
+2. 创建 Worker：
+   ```bash
+   cd Lanxuan-ai
+   wrangler login
+   wrangler init lanxuan-api --yes
+   ```
+
+3. 把 `api/` 目录下的 Express 代码改写为 Worker 格式，或用 `@hono/node-server` 适配。
+
+> 📦 需要改写后端代码。如果觉得麻烦，直接用 Sealos 更省心。
+
+---
+
+## 方式三：阿里云 / 腾讯云
+
+如果你有实名账号，也可以：
+
+| 平台 | 方案 |
+|------|------|
+| **阿里云 SAE** | Serverless 应用引擎，有免费额度 |
+| **腾讯云 CloudBase** | 云开发，支持 Web 应用托管 |
+| **阿里云 ECS** | 买台最便宜的轻量服务器，`npm start` 就行 |
+
+---
+
+## 方式四：本地部署
 
 ```bash
 git clone https://github.com/Arisemoss/Lanxuan-ai.git
 cd Lanxuan-ai
-npm install --production
-NODE_ENV=production PORT=80 npm start
+npm install
+NODE_ENV=production npm start
+# → http://localhost:3000
 ```
 
-配合 nginx + systemd + Let's Encrypt 即可上线。
+配合 **frp / ngrok** 内网穿透，也能分享给朋友玩。
 
 ---
 
@@ -64,33 +100,33 @@ NODE_ENV=production PORT=80 npm start
 ```env
 PORT=3000
 NODE_ENV=production
-ALLOWED_ORIGINS=https://your-domain.com
+ALLOWED_ORIGINS=https://你的域名.com
 MIMO_API_KEY=你的API密钥
 MIMO_API_URL=https://api.xiaomimimo.com/v1/chat/completions
 MIMO_MODEL=mimo-v2-flash
 ```
 
-不配置 AI API 也没关系，前端自带丰富的本地回复库。
+**不配置 AI API 也无所谓** — 前端自带丰富的本地回复库，兰轩一样会和你聊天 😄
 
 ---
 
 ## 📤 社交分享
 
-任意部署链接都可以直接分享：
+部署链接可以直接分享：
 
-- **微信 / QQ** — 复制链接发送
-- **微博 / Twitter** — 自动生成卡片预览
-- **Discord / Telegram** — 丰富的链接预览
+- **微信 / QQ** — 复制链接发送，自动生成卡片
+- **朋友圈 / 微博** — 蓝白配色的链接预览
+- **手机浏览器** — 适配移动端，跟原生 App 一样
 
-卡片信息在 `public/index.html` 的 `<meta>` 标签里，可自行修改。
+卡片预览的标题和描述在 `public/index.html` 的 `<meta>` 标签里，想改就改。
 
 ---
 
 ## 📞 遇到问题？
 
-1. 确认 `npm start` 在本地能跑 (`http://localhost:3000/api/health`)
-2. 查看 Render / Railway 的部署日志
-3. 浏览器 F12 查看控制台报错
+1. 本地测试：`npm start`，访问 `http://localhost:3000/api/health` 看返回
+2. 查看部署平台的日志（Sealos 应用详情页有日志面板）
+3. 浏览器 F12 → Console → 看有没有报错
 4. 提 [GitHub Issue](https://github.com/Arisemoss/Lanxuan-ai/issues)
 
 ---
