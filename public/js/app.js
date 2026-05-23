@@ -378,31 +378,53 @@ function generateLocalReply() {
 }
 
 function getStatusTag() {
-  // 根据当前状态生成标签
-  const moods = ['正常', '开心', '兴奋', '不屑', '困倦', '疑惑'];
-  const mood = moods[Math.floor(Math.random() * moods.length)];
-  const likeChange = Math.floor(Math.random() * 3) - 1; // -1, 0, 或 1
-  const trustChange = Math.floor(Math.random() * 3) - 1; // -1, 0, 或 1
+  // 根据当前对话上下文和好感度生成合理的标签
+  const lastMsg = S.history.length > 0 ? S.history[S.history.length - 1].content.toLowerCase() : "";
   
-  return `<情绪(${mood})><好感变化:${likeChange >= 0 ? '+' : ''}${likeChange}><信任变化:${trustChange >= 0 ? '+' : ''}${trustChange}>`;
-}
-
-function generateFallbackReply() {
-  const fallbacks = [
-    '哦↗<情绪(正常)><好感变化:0><信任变化:0>',
-    '嗯...<情绪(正常)><好感变化:0><信任变化:0>',
-    '行吧<情绪(正常)><好感变化:0><信任变化:0>',
-    '切<情绪(不屑)><好感变化:-1><信任变化:0>',
-    '你说啥？<情绪(疑惑)><好感变化:0><信任变化:0>',
-    '别吵，困了。<情绪(困倦)><好感变化:-1><信任变化:0>',
-    '就这？<情绪(不屑)><好感变化:0><信任变化:0>',
-    '（打哈欠）<情绪(困倦)><好感变化:0><信任变化:0>',
-    '那又怎样？<情绪(不屑)><好感变化:0><信任变化:0>',
-    '随便你。<情绪(正常)><好感变化:0><信任变化:0>',
-    '哦，这样啊。<情绪(正常)><好感变化:0><信任变化:0>',
-    '行，知道了。<情绪(正常)><好感变化:+1><信任变化:0>'
-  ];
-  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+  let mood = S.mood || "正常";
+  let likeChange = 0;
+  let trustChange = 0;
+  
+  // 问候 -> 积极
+  if (/(你好|早|嗨|哈喽|hello|hi)/i.test(lastMsg)) {
+    likeChange = 1;
+  }
+  // 聊游戏 -> 兴奋
+  else if (/(三国杀|游戏|玩|来一局|对战|杀|技能|牌)/i.test(lastMsg)) {
+    mood = "兴奋";
+    likeChange = 1;
+    trustChange = 1;
+  }
+  // 夸赞 -> 开心
+  else if (/(厉害|棒|强|牛|优秀|帅|佩服)/i.test(lastMsg)) {
+    mood = "开心";
+    likeChange = 1;
+  }
+  // 关心 -> 非常积极
+  else if (/(没事吧|还好吗|怎么了|你还好|关心|担心)/i.test(lastMsg)) {
+    mood = "正常";
+    likeChange = 2;
+    trustChange = 2;
+  }
+  // 睡觉/困
+  else if (/(睡|困|累|休息)/i.test(lastMsg)) {
+    mood = "困倦";
+  }
+  // 负面的 -> 不爽
+  else if (/(烦|讨厌|滚|去死|白痴|闭嘴|别烦)/i.test(lastMsg)) {
+    mood = "不爽";
+    likeChange = -1;
+    trustChange = -1;
+  }
+  // 提问 -> 中性
+  else if (/(\?|？|什么|怎么|为什么|吗)/i.test(lastMsg)) {
+    mood = "正常";
+  }
+  
+  const likeSign = likeChange >= 0 ? "+" : "";
+  const trustSign = trustChange >= 0 ? "+" : "";
+  
+  return `<情绪(${mood})><好感变化:${likeSign}${likeChange}><信任变化:${trustSign}${trustChange}>`;
 }
 
 // ═══ 发送消息 ═══
@@ -1363,7 +1385,6 @@ function finishAITurn() {
   addLog('── 你的回合 ──', 'log-turn');
   document.getElementById('playText').textContent = '你的回合，出牌吧！';
   
-  if (G.deck.length < 5) G.deck = buildDeck();
   renderGame();
 }
 
@@ -1391,4 +1412,3 @@ window.playCard = playCard;
 window.endTurn = endTurn;
 window.endGame = endGame;
 window.closeOverlay = closeOverlay;
-

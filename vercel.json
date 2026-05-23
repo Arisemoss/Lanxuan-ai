@@ -10,6 +10,26 @@
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
+    },
+    {
+      "src": "/css/(.*)",
+      "dest": "/public/css/$1"
+    },
+    {
+      "src": "/js/(.*)",
+      "dest": "/public/js/$1"
+    },
+    {
+      "src": "/(.*)\\.(js|css|html|ico|svg|png|jpg|webp)",
+      "dest": "/public/$1.$2"
+    },
+    {
+      "src": "/game-core.js",
+      "dest": "/public/game-core.js"
+    },
+    {
+      "src": "/",
+      "dest": "/public/index.html"
     }
   ]
 }
