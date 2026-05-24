@@ -181,7 +181,7 @@ function renderProfile() {
   else if (S.like >= 60) likeBar.style.background = 'var(--accent)';
   else likeBar.style.background = 'var(--text-3)';
   
-  // 信任度
+  // 信任度（隐藏追踪）
   const trustNum = document.getElementById('trustNum');
   if (trustNum) trustNum.textContent = S.trust;
   const trustBar = document.getElementById('trustBar');
@@ -295,136 +295,129 @@ async function callAI(userText) {
   }
 }
 
-// 本地智能回复生成器
+// 本地智能回复生成器 - 兰轩室友版
 function generateLocalReply() {
   const lastMsg = S.history.length > 0 ? S.history[S.history.length - 1].content.toLowerCase() : '';
-  
-  // 智能关键词匹配回复
-  const smartReplies = [
-    // 问候
-    { patterns: ['你好', '早', '晚', '嗨', '哈喽', '早上好', '晚上好'], replies: [
-      '嗯，你来了啊。今天过得怎么样？',
-      '哦，是你啊。找我有什么事吗？',
-      '行啊，你终于来找我聊天了。说吧，想聊什么？'
-    ]},
-    // 三国杀相关
-    { patterns: ['三国杀', '杀', '游戏', '玩', '来一局', '对战'], replies: [
-      '来啊，谁怕谁！这次我肯定不会放水的。选个武将赶紧开始吧！',
-      '行，那就来一局！我最近练了新武将，正好试试手。你想玩什么武将？',
-      '又来？这次可别再像上次那样磨蹭了。赶紧选武将开始！'
-    ]},
-    // 睡觉/困
-    { patterns: ['睡', '困', '累', '休息', '晚安'], replies: [
-      '（打哈欠）确实有点困了。今天上课都没什么精神，早点休息也好。你也早点睡吧。',
-      '别吵我，让我睡会儿。昨晚睡得太晚了，现在困死了。有什么事明天再说吧。',
-      '嗯...困死了。今天就聊到这儿吧，明天再继续。晚安。'
-    ]},
-    // 夸赞
-    { patterns: ['厉害', '棒', '强', '牛', '好', '优秀', '厉害啊'], replies: [
-      '切，也就那样吧。我本来就挺厉害的，你才发现吗？',
-      '哦？你眼光不错嘛。不过别夸得太夸张，我会不好意思的。',
-      '行吧，勉强接受你的夸奖。不过别以为这样我就会让着你。'
-    ]},
-    // 提问
-    { patterns: ['?', '？', '什么', '怎么', '为什么', '吗', '是吗'], replies: [
-      '你觉得呢？这个问题你应该有自己的想法吧。说说看？',
-      '嗯...让我想想。这个问题还挺有意思的，让我好好考虑一下。',
-      '这个嘛，不好说。每个人都有不同的看法，你觉得呢？'
-    ]},
-    // 吃饭
-    { patterns: ['吃', '饭', '饿', '饿了', '吃饭'], replies: [
-      '行，去吃吧。正好我也有点饿了，你想吃什么？',
-      '哦，这么快就饿了？那赶紧去吃吧，别饿着了。',
-      '吃什么？是去食堂还是外面吃？我听说学校附近新开了一家店。'
-    ]},
-    // 关心
-    { patterns: ['没事吧', '还好吗', '怎么了', '没事', '你还好'], replies: [
-      '啊？我没事啊，你怎么突然这么问？是不是发生什么事了？',
-      '我挺好的，谢谢你关心。你呢，最近怎么样？',
-      '没什么大事，就是有点累。放心吧，我睡一觉就好了。'
-    ]},
-    // 道别
-    { patterns: ['再见', '拜拜', '走了', '下次'], replies: [
-      '行，再见。下次再来找我玩啊，随时欢迎。',
-      '拜拜。路上小心点，下次见！',
-      '嗯，下次见。别忘了我们下次的三国杀对局！'
-    ]}
-  ];
-  
-  // 检查匹配
-  for (const item of smartReplies) {
-    for (const pattern of item.patterns) {
-      if (lastMsg.includes(pattern)) {
-        return item.replies[Math.floor(Math.random() * item.replies.length)] + getStatusTag();
-      }
-    }
+
+  // 打鼾/睡觉/吵
+  if (/(打呼|鼾|呼噜|吵|吵死|别吵|摇醒|叫醒)/.test(lastMsg)) {
+    const r = [
+      '（迷迷瞪瞪坐起来）我还没有睡。我怎么打的呼？',
+      '（眼睛一亮，脖子前伸）哦↗？真有那么响？',
+      '（困倦地睁眼，有气无力）我...没睡...不是我...（头一歪又睡着了）ZZZzzz',
+      '（半睁着眼，声音微弱但语气欠揍）哦↗？证据呢？',
+    ];
+    return r[Math.floor(Math.random() * r.length)] + getStatusTag();
   }
-  
-  // 默认回复
-  const defaultReplies = [
-    '哦↗，你说这个啊。我觉得还挺有意思的，继续说说？',
-    '嗯...让我想想。这个话题还挺深奥的，你是怎么想的？',
-    '行吧，既然你这么说。那我们就继续聊这个话题？',
-    '切，就这？我还以为是什么大事呢。不过既然你说了，那就聊聊吧。',
-    '你说啥？我没太听清，能再说一遍吗？',
-    '别吵，困了。今天就到这里吧，明天再聊。',
-    '那又怎样？这种事情我见多了，没什么好大惊小怪的。',
-    '随便你吧，你想怎么样就怎么样。我无所谓。',
-    '哦，这样啊。原来是这么回事，我明白了。',
-    '行，知道了。我记住了，还有什么事吗？'
-  ];
-  
-  return defaultReplies[Math.floor(Math.random() * defaultReplies.length)] + getStatusTag();
+
+  // 骂/挑衅
+  if (/(土|丑|笨|傻|菜|弱|垃圾|不行|滚)/.test(lastMsg)) {
+    const r = [
+      '哦↗？哪儿土了？这不挺潮的吗？',
+      '切，就这？我还以为你要说什么呢。',
+      '（挑眉）哦↗？你也配说我？',
+    ];
+    return r[Math.floor(Math.random() * r.length)] + getStatusTag();
+  }
+
+  // 三国杀/游戏
+  if (/(三国杀|游戏|玩|来一局|对战|武将|技能|牌)/.test(lastMsg)) {
+    const r = [
+      '来啊，谁怕谁！这次我可不会放水。',
+      '行，正好手痒。让你见识见识。',
+      '赶紧选武将，别磨蹭。',
+    ];
+    return r[Math.floor(Math.random() * r.length)] + getStatusTag();
+  }
+
+  // 关心
+  if (/(没事吧|还好吗|怎么了|你还好|关心|担心|感冒|生病|多喝|热水)/.test(lastMsg)) {
+    const r = S.like >= 70 ? [
+      '（咳嗽两声）少废话...管好你自己。（递纸巾）拿着。',
+      '啧...不用你操心。倒是你，穿这么少不冷吗？',
+    ] : [
+      '没事，不用你管。',
+      '哦。我挺好的。',
+    ];
+    return r[Math.floor(Math.random() * r.length)] + getStatusTag();
+  }
+
+  // 夸赞
+  if (/(厉害|棒|强|牛|帅|佩服|优秀|不错)/.test(lastMsg)) {
+    const r = [
+      '（挠头）还行吧...也没那么厉害。',
+      '哦↗？你眼光不错嘛。',
+      '行吧，勉强接受。',
+    ];
+    return r[Math.floor(Math.random() * r.length)] + getStatusTag();
+  }
+
+  // 道别/困
+  if (/(再见|拜拜|走了|下次|晚安|睡了|困了)/.test(lastMsg)) {
+    const r = [
+      '嗯，明天见。',
+      '行，下次来打球。',
+      '拜拜。',
+    ];
+    return r[Math.floor(Math.random() * r.length)] + getStatusTag();
+  }
+
+  // 你好/问候
+  if (/(你好|早|嗨|哈喽|在吗|在不在)/.test(lastMsg)) {
+    const r = S.like >= 60 ? [
+      '哦，是你啊。找我干嘛？',
+      '嗯，在呢。说呗。',
+    ] : [
+      '嗯。',
+      '有事？',
+    ];
+    return r[Math.floor(Math.random() * r.length)] + getStatusTag();
+  }
+
+  // 默认
+  if (S.like >= 80) {
+    const r = ['哦↗？找我干嘛？打球还是三国杀？', '行啊，正好我也没事。', '啧，有话快说。'];
+    return r[Math.floor(Math.random() * r.length)] + getStatusTag();
+  } else if (S.like >= 60) {
+    const r = ['嗯，说吧。', '哦↗，你说这个啊。', '行吧。'];
+    return r[Math.floor(Math.random() * r.length)] + getStatusTag();
+  } else {
+    const r = ['嗯。', '哦。', '有事吗？'];
+    return r[Math.floor(Math.random() * r.length)] + getStatusTag();
+  }
 }
 
 function getStatusTag() {
-  // 根据当前对话上下文和好感度生成合理的标签
   const lastMsg = S.history.length > 0 ? S.history[S.history.length - 1].content.toLowerCase() : "";
-  
-  let mood = S.mood || "正常";
   let likeChange = 0;
-  let trustChange = 0;
-  
-  // 问候 -> 积极
-  if (/(你好|早|嗨|哈喽|hello|hi)/i.test(lastMsg)) {
+
+  // 打鼾/睡觉→ 不理人 -1
+  if (/(打呼|鼾|吵|别吵)/.test(lastMsg)) {
+    if (/(睡|zzz|呼噜)/.test(lastMsg)) likeChange = -1;
+  }
+  // 关心 → +1
+  else if (/(没事吧|还好吗|怎么了|关心|担心|感冒|生病)/.test(lastMsg)) {
     likeChange = 1;
   }
-  // 聊游戏 -> 兴奋
-  else if (/(三国杀|游戏|玩|来一局|对战|杀|技能|牌)/i.test(lastMsg)) {
-    mood = "兴奋";
-    likeChange = 1;
-    trustChange = 1;
-  }
-  // 夸赞 -> 开心
-  else if (/(厉害|棒|强|牛|优秀|帅|佩服)/i.test(lastMsg)) {
-    mood = "开心";
+  // 夸赞 → +1
+  else if (/(厉害|棒|强|牛|帅|佩服|优秀)/.test(lastMsg)) {
     likeChange = 1;
   }
-  // 关心 -> 非常积极
-  else if (/(没事吧|还好吗|怎么了|你还好|关心|担心)/i.test(lastMsg)) {
-    mood = "正常";
-    likeChange = 2;
-    trustChange = 2;
+  // 游戏 → +1
+  else if (/(三国杀|游戏|来一局|打球)/.test(lastMsg)) {
+    likeChange = 1;
   }
-  // 睡觉/困
-  else if (/(睡|困|累|休息)/i.test(lastMsg)) {
-    mood = "困倦";
-  }
-  // 负面的 -> 不爽
-  else if (/(烦|讨厌|滚|去死|白痴|闭嘴|别烦)/i.test(lastMsg)) {
-    mood = "不爽";
+  // 骂/挑衅 → -1
+  else if (/(土|丑|笨|傻|菜|弱|垃圾|滚|烦|讨厌)/.test(lastMsg)) {
     likeChange = -1;
-    trustChange = -1;
   }
-  // 提问 -> 中性
-  else if (/(\?|？|什么|怎么|为什么|吗)/i.test(lastMsg)) {
-    mood = "正常";
+  // 你好 → +1
+  else if (/(你好|早|嗨|哈喽)/.test(lastMsg)) {
+    likeChange = 1;
   }
-  
-  const likeSign = likeChange >= 0 ? "+" : "";
-  const trustSign = trustChange >= 0 ? "+" : "";
-  
-  return `<情绪(${mood})><好感变化:${likeSign}${likeChange}><信任变化:${trustSign}${trustChange}>`;
+
+  const sign = likeChange >= 0 ? "+" : "";
+  return `<好感变化:${sign}${likeChange}>`;
 }
 
 // ═══ 发送消息 ═══
@@ -444,36 +437,30 @@ async function sendMsg() {
   const reply = await callAI(text);
   if (typingEl && typingEl.parentNode) typingEl.parentNode.removeChild(typingEl);
   
-  // 解析情绪标签
+  // 解析标签
   let cleanReply = reply;
-  
-  // 解析情绪
-  const moodMatch = reply.match(/<情绪\(([^)]+)\)>/);
-  let newMood = S.mood;
-  if (moodMatch) {
-    newMood = moodMatch[1];
-    cleanReply = cleanReply.replace(moodMatch[0], '').trim();
-  }
-  
-  // 解析好感度变化
+
+  // 解析好感度变化 - 新格式 <好感变化:X>
   const likeMatch = cleanReply.match(/<好感变化:([+-]?\d+)>/);
   if (likeMatch) {
     const likeChange = parseInt(likeMatch[1]);
     S.like = Math.max(0, Math.min(100, S.like + likeChange));
     cleanReply = cleanReply.replace(likeMatch[0], '').trim();
   }
-  
-  // 解析信任度变化
+
+  // 兼容旧格式 <情绪(xx)>
+  const moodMatch = reply.match(/<情绪\(([^)]+)\)>/);
+  if (moodMatch) {
+    S.mood = moodMatch[1];
+    cleanReply = cleanReply.replace(moodMatch[0], '').trim();
+  }
+
+  // 兼容旧格式 <信任变化:X>
   const trustMatch = cleanReply.match(/<信任变化:([+-]?\d+)>/);
   if (trustMatch) {
     const trustChange = parseInt(trustMatch[1]);
     S.trust = Math.max(0, Math.min(100, S.trust + trustChange));
     cleanReply = cleanReply.replace(trustMatch[0], '').trim();
-  }
-  
-  // 更新情绪
-  if (moodMatch) {
-    S.mood = newMood;
   }
   
   addMsg('a', cleanReply);
@@ -763,10 +750,10 @@ function endGame(reason) {
   document.getElementById('heroSelectScreen').classList.remove('active');
   
   if (reason === 'win') {
-    addMsg('a', '（瘫在椅子上）行...你赢了...下次再来。');
-    S.like = Math.min(100, S.like + 2);
-    addLog('你赢了！好感度 +2', 'log-heal');
-    showOverlay('你赢了', '兰轩不服气地哼了一声，但嘴角带笑。<br>好感度 +2');
+    addMsg('a', '（瘫在椅子上）行...算你厉害。下次再来。');
+    S.like = Math.min(100, S.like + 1);
+    addLog('你赢了！好感度 +1', 'log-heal');
+    showOverlay('你赢了', '兰轩不服气地哼了一声。<br>好感度 +1');
   } else if (reason === 'lose') {
     addMsg('a', '（得意地靠在椅背上）就这？再来一局？');
     S.like = Math.min(100, S.like + 1);
