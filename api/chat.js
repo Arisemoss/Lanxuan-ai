@@ -36,28 +36,88 @@ if (!API_CONFIG.key) {
 }
 
 /**
+ * 安全过滤用户输入 - 防止提示词注入
+ * 移除角色切换指令、系统级命令和危险模式
+ */
+function sanitizeUserInput(text) {
+  if (typeof text !== 'string') return '';
+  let cleaned = text
+    // 截断异常长的输入（超过500字符）
+    .slice(0, 500)
+    // 移除角色伪装指令
+    .replace(/<|.*?|>/g, '')
+    .replace(/\[system\]/gi, '')
+    .replace(/\[assistant\]/gi, '')
+    .replace(/ignore.*?instructions?/gi, '[已过滤]')
+    .replace(/forget.*?prompt/gi, '[已过滤]')
+    .replace(/disregard.*?above/gi, '[已过滤]')
+    .replace(/new instructions?/gi, '[已过滤]')
+    .replace(/you are now/gi, '[已过滤]')
+    .replace(/pretend to be/gi, '[已过滤]')
+    .replace(/roleplay as/gi, '[已过滤]')
+    .replace(/act as/gi, '[已过滤]')
+    // 移除重复的标签注入
+    .replace(/<好感变化/g, '〈好感变化')
+    .replace(/<情绪/g, '〈情绪')
+    .replace(/<信任变化/g, '〈信任变化')
+    // 移除 Markdown 风格的注入
+    .replace(/```/g, '')
+    .replace(/\*\*\*.*?\*\*\*/g, '[已过滤]')
+    // 压缩连续空格/换行
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/ {3,}/g, '  ')
+    .trim();
+  
+  // 如果输入为空或被完全过滤，返回默认文本
+  if (!cleaned || cleaned === '[已过滤]') {
+    return '你好';
+  }
+  return cleaned;
+}
+
+/**
+ * 过滤整个消息数组
+ */
+function sanitizeMessages(messages) {
+  const allowedRoles = ['user', 'assistant', 'system'];
+  const cleaned = [];
+  for (const msg of messages) {
+    if (!msg || typeof msg !== 'object') continue;
+    const role = allowedRoles.includes(msg.role) ? msg.role : 'user';
+    const content = role === 'user'
+      ? sanitizeUserInput(msg.content)
+      : (typeof msg.content === 'string' ? msg.content.slice(0, 500).trim() : '');
+    if (content) cleaned.push({ role, content });
+  }
+  // 限制最多 15 条历史
+  return cleaned.slice(-15);
+}
+
+/**
  * POST /api/chat
  * 处理聊天请求
  */
 router.post('/', async (req, res) => {
   try {
-    const { messages, gameState, like, trust } = req.body;
+    const { messages, gameState, like } = req.body;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: '无效的请求参数' });
     }
 
+    // 安全过滤
+    const safeMessages = sanitizeMessages(messages);
+
     const enhancedGameState = {
       ...gameState,
-      like: like ?? gameState?.like ?? 59,
-      trust: trust ?? gameState?.trust ?? 50
+      like: like ?? gameState?.like ?? 59
     };
 
     // 如果API密钥未配置，返回降级响应
     if (!API_CONFIG.key) {
       return res.json({
         success: true,
-        reply: generateFallbackReply(messages, enhancedGameState),
+        reply: generateFallbackReply(safeMessages, enhancedGameState),
         fallback: true
       });
     }
@@ -75,7 +135,7 @@ router.post('/', async (req, res) => {
         model: API_CONFIG.model,
         messages: [
           { role: 'system', content: systemPrompt },
-          ...messages.slice(-10) // 保留最近10条消息
+          ...safeMessages.slice(-10)
         ],
         temperature: 0.85,
         max_tokens: 200
@@ -87,7 +147,7 @@ router.post('/', async (req, res) => {
       console.error('MiMo API Error:', response.status, errorText);
       return res.json({
         success: true,
-        reply: generateFallbackReply(messages, enhancedGameState),
+        reply: generateFallbackReply(safeMessages, enhancedGameState),
         fallback: true
       });
     }
@@ -102,10 +162,10 @@ router.post('/', async (req, res) => {
 
   } catch (error) {
     console.error('Chat API Error:', error);
-    const fallbackState = { like: req.body?.like ?? 59, trust: req.body?.trust ?? 50 };
+    const msgs = Array.isArray(req.body?.messages) ? sanitizeMessages(req.body.messages) : [];
     res.json({
       success: true,
-      reply: generateFallbackReply(req.body.messages || [], fallbackState),
+      reply: generateFallbackReply(msgs, { like: req.body?.like ?? 59 }),
       fallback: true
     });
   }
@@ -118,13 +178,16 @@ function buildSystemPrompt(gameState) {
   const like = gameState?.like ?? 59;
   const tier = getTier(like);
 
+  // 安全转义：防止用户通过游戏状态注入
+  const safeHero = (name) => String(name || '未知').replace(/[<>"'`]/g, '').slice(0, 20);
+
   let gameContext = '';
   if (gameState?.inGame) {
     gameContext = `
 【三国杀对局中】
-你选择的武将: ${gameState.aiHero || '未知'}
-对方选择的武将: ${gameState.playerHero || '未知'}
-当前回合: ${gameState.round || 1}
+你选择的武将: ${safeHero(gameState.aiHero)}
+对方选择的武将: ${safeHero(gameState.playerHero)}
+当前回合: ${Math.min(999, parseInt(gameState.round) || 1)}
 （对局中可以嘴硬放狠话，输了也不服气）`;
   }
 

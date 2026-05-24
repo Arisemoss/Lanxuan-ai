@@ -681,6 +681,7 @@ function renderGame() {
   document.getElementById('drawBtn').disabled = !canAct || G.player.hasDrawn;
   document.getElementById('endBtn').disabled = !canAct;
   document.getElementById('exitBtn').disabled = !G.active;
+  document.getElementById('surrenderBtn').disabled = !G.active;
   
   // 技能按钮
   const skillBtn = document.getElementById('skillBtn');
@@ -760,18 +761,59 @@ function endGame(reason) {
     addLog('兰轩赢了，好感度 +1', 'log-turn');
     showOverlay('兰轩赢了', '他得意洋洋地看着你。<br>好感度 +1');
   } else if (reason === 'surrender') {
-    addMsg('a', '（挑眉）哦↗？这就投了？');
-    addLog('你投降了', 'log-dmg');
-    showOverlay('你投降了', '兰轩一脸不屑地看着你。');
+    addMsg('a', '（挑眉）哦↗？这就投了？没劲。');
+    S.like = Math.max(0, S.like - 1);
+    addLog('你投降了，好感度 -1', 'log-dmg');
+    showOverlay('你投降了', '兰轩翻了个白眼。<br>好感度 -1');
   } else {
     addMsg('a', '（不爽）打到一半跑了？下次别找我打。');
-    addLog('对局中断', 'log-dmg');
+    S.like = Math.max(0, S.like - 1);
+    addLog('对局中断，好感度 -1', 'log-dmg');
   }
   
   S.mood = '正常';
   renderProfile();
   renderGame();
   saveUserData();
+}
+
+// ═══ 数据导出 ═══
+function exportData() {
+  const data = {
+    like: S.like,
+    trust: S.trust,
+    mood: S.mood,
+    history: S.history.slice(-50),
+    userId: S.userId,
+    exportedAt: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'lanxuan-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  addMsg('a', '（瞥了一眼）备份好了。别弄丢了。');
+}
+
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (typeof data.like === 'number') S.like = data.like;
+      if (typeof data.trust === 'number') S.trust = data.trust;
+      if (data.mood) S.mood = data.mood;
+      if (Array.isArray(data.history)) S.history = data.history;
+      renderProfile();
+      saveUserData();
+      addMsg('a', '（挠头）哦，数据回来了。继续聊天还是打牌？');
+    } catch (err) {
+      addMsg('a', '（皱眉）这什么文件？打不开。');
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ═══ 摸牌 ═══
@@ -943,13 +985,18 @@ function useSkill() {
       break;
     }
     case 'huangyueying': {
-      const wzIdx = G.player.hand.findIndex(c => c.type === 'wzsy');
-      if (wzIdx < 0) { addLog('【奇才】需要一张锦囊牌', ''); return; }
-      G.player.hand.splice(wzIdx, 1);
+      // 【奇才】可将任意锦囊牌当作【无中生有】使用
+      const trickIdx = G.player.hand.findIndex(c =>
+        ['wzsy', 'ghcq', 'nmrr', 'wjqf'].includes(c.type)
+      );
+      if (trickIdx < 0) { addLog('【奇才】需要一张锦囊牌（无中/过河/南蛮/万箭）', ''); return; }
+      const usedCard = G.player.hand[trickIdx];
+      G.player.hand.splice(trickIdx, 1);
       const extra = drawFromDeck(2).map(assignColor);
       G.player.hand.push(...extra);
       G.player.skillUsed = true;
-      addLog('【集智】黄月英使用锦囊，额外摸一张牌', 'log-skill');
+      addLog(`【奇才】将【${usedCard.name}】当作【无中生有】使用`, 'log-skill');
+      // 【集智】触发：使用锦囊牌时额外摸一张
       triggerJiZhi(G.player);
       addLog('摸到: ' + extra.map(c => c.name).join(', '), 'log-card');
       break;
@@ -1399,3 +1446,5 @@ window.playCard = playCard;
 window.endTurn = endTurn;
 window.endGame = endGame;
 window.closeOverlay = closeOverlay;
+window.exportData = exportData;
+window.importData = importData;
