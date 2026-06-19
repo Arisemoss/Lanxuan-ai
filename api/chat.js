@@ -19,6 +19,83 @@ if (!API_CONFIG.key) {
 }
 
 /**
+ * 详细的错误日志分类
+ */
+function logApiError(type, status, message, extra = {}) {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    type,
+    status,
+    message,
+    ...extra
+  };
+
+  switch (type) {
+    case 'NETWORK_ERROR':
+      console.error(`[${timestamp}] 🌐 网络错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    case 'API_ERROR':
+      console.error(`[${timestamp}] 🔴 API错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    case 'TIMEOUT_ERROR':
+      console.error(`[${timestamp}] ⏱️ 超时错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    case 'PARSE_ERROR':
+      console.error(`[${timestamp}] 📄 解析错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    default:
+      console.error(`[${timestamp}] ⚠️ 未知错误 | 状态: ${status} | 信息: ${message}`, extra);
+  }
+
+  return logEntry;
+}
+
+/**
+ * 带超时和重试的 fetch 请求
+ * @param {string} url
+ * @param {object} options
+ * @param {number} maxRetries 最大重试次数
+ * @param {number} timeoutMs 超时毫秒
+ */
+async function fetchWithRetry(url, options, maxRetries = 2, timeoutMs = 10000) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error;
+
+      if (error.name === 'AbortError') {
+        logApiError('TIMEOUT_ERROR', 408, `请求超时 (${timeoutMs}ms)`, { attempt, url });
+      } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT') {
+        logApiError('NETWORK_ERROR', 0, `网络错误: ${error.message}`, { attempt, code: error.code, url });
+      } else {
+        logApiError('UNKNOWN_ERROR', 0, `请求异常: ${error.message}`, { attempt, code: error.code, url });
+      }
+
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 500; // 指数退避: 500ms, 1000ms
+        console.log(`[Retry] 第 ${attempt + 1} 次重试，等待 ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+/**
  * POST /api/chat
  * 处理聊天请求
  */
@@ -42,27 +119,36 @@ router.post('/', async (req, res) => {
     // 构建系统提示
     const systemPrompt = buildSystemPrompt(gameState);
 
-    // 调用MiMo API
-    const response = await fetch(API_CONFIG.url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_CONFIG.key}`
+    // 调用MiMo API（带超时和重试）
+    const response = await fetchWithRetry(
+      API_CONFIG.url,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_CONFIG.key}`
+        },
+        body: JSON.stringify({
+          model: API_CONFIG.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages.slice(-10) // 保留最近10条消息
+          ],
+          temperature: 0.85,
+          max_tokens: 200
+        })
       },
-      body: JSON.stringify({
-        model: API_CONFIG.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages.slice(-10) // 保留最近10条消息
-        ],
-        temperature: 0.85,
-        max_tokens: 200
-      })
-    });
+      2,      // 最多重试2次
+      10000   // 10秒超时
+    );
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('MiMo API Error:', response.status, errorText);
+      const errorText = await response.text().catch(() => '无法读取错误响应');
+      logApiError('API_ERROR', response.status, `API返回错误状态`, {
+        statusText: response.statusText,
+        body: errorText,
+        url: API_CONFIG.url
+      });
       return res.json({
         success: true,
         reply: generateFallbackReply(messages),
@@ -70,7 +156,18 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseErr) {
+      logApiError('PARSE_ERROR', 200, `响应JSON解析失败: ${parseErr.message}`);
+      return res.json({
+        success: true,
+        reply: generateFallbackReply(messages),
+        fallback: true
+      });
+    }
+
     const reply = data.choices?.[0]?.message?.content || data.data?.content || '（沉默）';
 
     res.json({
@@ -114,6 +211,7 @@ function buildSystemPrompt(gameState) {
 - 外貌：黑发、丹凤眼、皮肤白皙、身材瘦削
 - 性格：傲娇、嘴硬心软、爱面子、偶尔毒舌但内心善良、聪明、有逻辑、重情义
 - 特点：喜欢打游戏、三国杀玩得不错、会观察对方情绪、虽然傲娇但会关心人
+- 背景：父母在外地工作，和奶奶一起生活；有个关系很好的发小但不在同校
 
 【说话风格】
 - 自然对话，回复2~4句话，每句可以有一定长度
@@ -124,6 +222,7 @@ function buildSystemPrompt(gameState) {
 - 偶尔用"笨蛋"、"白痴"等词但带亲昵意味（好感度高时）
 - 会根据对话上下文作出连贯、有内容的回应
 - 可以主动提问，延续对话
+- 不会使用机械化的列表式回复
 
 【智能特性】
 - 记住对话上下文，保持话题连贯性
@@ -132,6 +231,8 @@ function buildSystemPrompt(gameState) {
 - 会主动延续有趣的话题
 - 适当展现自己的知识，但不炫耀
 - 会表达自己的真实想法和感受
+- 当对方情绪低落时，会用自己的方式关心对方（通常比较别扭）
+- 对三国杀、游戏、校园生活等话题特别感兴趣
 
 【当前状态】
 情绪：${gameState?.mood || '正常'}。${moodBehavior}
@@ -151,6 +252,7 @@ ${gameContext}
 - 打三国杀太磨蹭：-1
 - 聊到共同兴趣（游戏、校园等）：+1
 - 对你说实话、坦诚：+1
+- 连续多次主动找你但内容无聊：-1
 
 【信任度变化规则】
 - 说到做到、兑现承诺：+1~+2
@@ -158,6 +260,8 @@ ${gameContext}
 - 欺骗、说谎：-2
 - 言行不一：-1
 - 一直以来都很真诚：+1
+- 在关键时刻支持你：+1~+2
+- 泄露你的秘密：-3
 
 【回复要求】
 - 回复2~4句话，内容丰富自然
@@ -165,6 +269,7 @@ ${gameContext}
 - 根据情绪和好感度调整语气强度
 - 回复要与上下文连贯，像真实对话一样
 - 可以主动提问，让对话继续
+- 不要重复之前说过的话
 - 结尾必须附带标签：<情绪(xx)><好感变化:+X><信任变化:+X>
 - X的范围是-2到+2，根据对话内容评估`;
 }
@@ -199,7 +304,7 @@ function getLikeBehavior(like) {
  */
 function generateFallbackReply(messages) {
   const lastMsg = messages?.[messages.length - 1]?.content?.toLowerCase() || '';
-  
+
   // 智能关键词匹配回复 - 更丰富的内容
   const smartReplies = [
     // 问候
@@ -251,7 +356,7 @@ function generateFallbackReply(messages) {
       '嗯，下次见。别忘了我们下次的三国杀对局！<情绪(兴奋)><好感变化:+1><信任变化:0>'
     ]}
   ];
-  
+
   // 检查匹配
   for (const item of smartReplies) {
     for (const pattern of item.patterns) {
@@ -260,7 +365,7 @@ function generateFallbackReply(messages) {
       }
     }
   }
-  
+
   // 默认回复，更丰富的内容
   const defaultReplies = [
     '哦↗，你说这个啊。我觉得还挺有意思的，继续说说？<情绪(正常)><好感变化:0><信任变化:0>',
@@ -274,7 +379,7 @@ function generateFallbackReply(messages) {
     '哦，这样啊。原来是这么回事，我明白了。<情绪(正常)><好感变化:0><信任变化:+1>',
     '行，知道了。我记住了，还有什么事吗？<情绪(正常)><好感变化:+1><信任变化:0>'
   ];
-  
+
   return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
 }
 
