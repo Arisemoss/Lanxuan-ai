@@ -1626,6 +1626,8 @@ body.no-animations .record-item:hover {
 
 .chat-panel.hidden { display: none; }
 
+.pull-hint { display: none; }
+
 .chat-toolbar {
   display: flex;
   align-items: center;
