@@ -180,8 +180,8 @@ function setTheme(theme) {
   saveSettings();
 }
 
-function toggleAnimation() {
-  const enabled = document.getElementById('animationToggle')?.checked ?? document.getElementById('mobileAnimationToggle')?.checked ?? Store.get('settings.animations');
+function toggleAnimation(source) {
+  const enabled = source ? source.checked : Store.get('settings.animations');
   Store.set('settings.animations', enabled);
   const desktopLabel = document.getElementById('animationLabel');
   if (desktopLabel) desktopLabel.textContent = enabled ? '开启' : '关闭';
@@ -199,8 +199,8 @@ function toggleAnimation() {
   saveSettings();
 }
 
-function toggleSound() {
-  const enabled = document.getElementById('soundToggle')?.checked ?? document.getElementById('mobileSoundToggle')?.checked ?? Store.get('settings.sound');
+function toggleSound(source) {
+  const enabled = source ? source.checked : Store.get('settings.sound');
   Store.set('settings.sound', enabled);
   const desktopLabel = document.getElementById('soundLabel');
   if (desktopLabel) desktopLabel.textContent = enabled ? '开启' : '关闭';
@@ -325,6 +325,8 @@ function cycleTheme() {
   saveSettings();
   const themeRadio = document.querySelector('input[name="theme"][value="' + next + '"]');
   if (themeRadio) themeRadio.checked = true;
+  const mobileThemeRadio = document.querySelector('input[name="mobileTheme"][value="' + next + '"]');
+  if (mobileThemeRadio) mobileThemeRadio.checked = true;
 }
 
 function updateThemeIcon(theme) {
@@ -1169,6 +1171,10 @@ addMsg('a', '（声音微弱但依旧嘴硬）"我还没有睡。我怎么打的
 // ═══ 武将选择界面 ═══
 function showHeroSelect() {
   if (Store.get('busy')) return;
+  const mobileNav = document.getElementById('mobileNav');
+  if (mobileNav && window.getComputedStyle(mobileNav).display !== 'none') {
+    switchMobileTab('battle');
+  }
   document.getElementById('chatPanel').classList.add('hidden');
   document.getElementById('heroSelectScreen').classList.add('active');
 }
@@ -1378,8 +1384,11 @@ function renderGame() {
 
     d.setAttribute('data-tip', tip + (c.color === 'red' ? ' [红]' : ' [黑]'));
     d.innerHTML = '<div class="card-name">' + c.name + '</div><div class="card-type-label">' + (['sha', 'shan', 'tao'].includes(c.type) ? '基本' : '锦囊') + '</div>';
-    d.style.animationDelay = (i * .04) + 's';
-    d.style.animation = 'cardFlipIn .35s ease forwards';
+    if (!c.dealt) {
+      c.dealt = true;
+      d.style.animationDelay = (i * .04) + 's';
+      d.style.animation = 'cardFlipIn .35s ease forwards';
+    }
     d.onclick = () => playCard(i);
     handFrag.appendChild(d);
   });
@@ -1473,15 +1482,14 @@ function showFloatText(zoneId, text, type) {
   const float = document.createElement('div');
   float.className = type === 'heal' ? 'heal-float' : 'damage-float';
   float.textContent = text;
-  const rect = zone.getBoundingClientRect();
-  const parentRect = zone.offsetParent ? zone.offsetParent.getBoundingClientRect() : rect;
-  float.style.left = (rect.left - parentRect.left + rect.width / 2 - 20) + 'px';
-  float.style.top = (rect.top - parentRect.top) + 'px';
   zone.style.position = 'relative';
   zone.appendChild(float);
-  requestAnimationFrame(() => {
-    if (float.parentNode) float.parentNode.removeChild(float);
-  });
+
+  const zoneRect = zone.getBoundingClientRect();
+  const floatRect = float.getBoundingClientRect();
+  float.style.left = Math.max(0, zoneRect.width / 2 - floatRect.width / 2) + 'px';
+  float.style.top = '0px';
+
   setTimeout(() => { if (float.parentNode) float.parentNode.removeChild(float); }, 950);
 }
 
@@ -1574,6 +1582,7 @@ function getRecords() {
 function clearRecords() {
   localStorage.removeItem('lanxuan_records');
   renderRecords();
+  renderMobileRecords();
 }
 
 function renderRecords() {
@@ -1659,6 +1668,11 @@ function endGame(reason) {
   document.getElementById('gameBoard').classList.remove('active');
   document.getElementById('heroSelectScreen').classList.remove('active');
 
+  const mobileNav = document.getElementById('mobileNav');
+  if (mobileNav && window.getComputedStyle(mobileNav).display !== 'none') {
+    switchMobileTab('chat');
+  }
+
   const stats = Store.get('game.stats');
   if (reason === 'win') {
     if (stats) { stats.result = 'win'; stats.rounds = Store.get('game.round'); Store.set('game.stats', stats); }
@@ -1696,8 +1710,9 @@ async function drawCard() {
   if (!Store.get('game.active') || Store.get('game.turn') !== 0 || Store.get('game.player.hasDrawn')) return;
 
   const player = Store.get('game.player');
-  if (player.hero?.id === 'zhugeliang' && !player.guanXingUsed) {
+  if (player.hero?.id === 'zhugeliang' && !player.guanXingUsed && !player.skillUsed) {
     player.guanXingUsed = true;
+    player.skillUsed = true;
     const top3 = [];
     for (let i = 0; i < 3; i++) {
       if (!Store.get('game.deck').length) {
@@ -1913,14 +1928,14 @@ async function useSkill() {
       break;
     }
     case 'huangyueying': {
-      const wzIdx = player.hand.findIndex(c => c.type === 'wzsy');
-      if (wzIdx < 0) { addLog('【奇才】需要一张锦囊牌', ''); return; }
-      player.hand.splice(wzIdx, 1);
+      const jinnangIdx = player.hand.findIndex(c => !['sha', 'shan', 'tao'].includes(c.type));
+      if (jinnangIdx < 0) { addLog('【奇才】需要一张锦囊牌', ''); return; }
+      player.hand.splice(jinnangIdx, 1);
       await triggerXiaoJi(player);
       const extra = (await drawFromDeck(2)).map(assignColor);
       player.hand.push(...extra);
       player.skillUsed = true;
-      addLog('【集智】黄月英使用锦囊，额外摸一张牌', 'log-skill');
+      addLog('【奇才】黄月英将锦囊牌当作【无中生有】使用', 'log-skill');
       await triggerJiZhi(player);
       addLog('摸到: ' + extra.map(c => c.name).join(', '), 'log-card');
       break;
@@ -1947,8 +1962,9 @@ async function useSkill() {
       break;
     }
     case 'zhugeliang': {
-      if (player.hand.length === 0) { addLog('【观星】没有手牌可调整', ''); return; }
+      if (player.guanXingUsed) { addLog('【观星】本回合已使用过', ''); return; }
       player.skillUsed = true;
+      player.guanXingUsed = true;
       const top3 = [];
       for (let i = 0; i < 3; i++) {
         if (!Store.get('game.deck').length) {
@@ -2359,15 +2375,31 @@ async function executeSmartAIActions() {
     }
 
     if (!acted) {
-      const s = ai.hand.findIndex(c => c.type === 'sha');
       const canUseSha = (!ai.shaUsed || ai.hero?.id === 'zhangfei');
       const playerEmpty = player.hero?.id === 'zhugeliang' && player.hand.length === 0;
+
+      let s = ai.hand.findIndex(c => c.type === 'sha');
+      let convertedSkill = '';
+      if (s < 0 && canUseSha && !playerEmpty) {
+        if (ai.hero?.id === 'guanyu') {
+          s = ai.hand.findIndex(c => c.type === 'shan' && c.color === 'red');
+          if (s >= 0) convertedSkill = '武圣';
+        } else if (ai.hero?.id === 'zhaoyun') {
+          s = ai.hand.findIndex(c => c.type === 'shan');
+          if (s >= 0) convertedSkill = '龙胆';
+        }
+      }
+
       if (s >= 0 && canUseSha && !playerEmpty) {
         ai.hand.splice(s, 1);
         await triggerXiaoJi(ai);
         ai.shaUsed = true;
         showPlayedCard(cards[0], '兰轩对你使用【杀】！');
-        addLog('兰轩对你使用【杀】！', 'log-dmg');
+        if (convertedSkill) {
+          addLog('【' + convertedSkill + '】兰轩将【闪】当作【杀】使用！', 'log-skill');
+        } else {
+          addLog('兰轩对你使用【杀】！', 'log-dmg');
+        }
         await triggerYaJiao(ai);
 
         let needShan = ai.hero?.id === 'lvbu' ? 2 : 1;
