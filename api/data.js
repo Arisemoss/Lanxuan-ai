@@ -8,10 +8,17 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = path.join(__dirname, '../data');
+// Vercel Serverless 环境使用 /tmp 目录
+const DATA_DIR = (process.env.VERCEL || process.env.NODE_ENV === 'production')
+  ? path.join('/tmp', 'lanxuan-data')
+  : path.join(__dirname, '../data');
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('⚠️ 无法创建数据目录，数据持久化功能将降级:', e.message);
 }
 
 function getDataFilePath(userId) {
