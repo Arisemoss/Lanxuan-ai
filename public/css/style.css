@@ -180,7 +180,7 @@ header {
 
 .bar-wrap {
   height: 4px;
-  background: rgba(255,255,255,.05);
+  background: rgba(15,23,42,.08);
   border-radius: 2px;
   margin-top: 8px;
   overflow: hidden;
@@ -240,7 +240,8 @@ header {
 }
 
 .chat-scroll::-webkit-scrollbar { width: 4px; }
-.chat-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 2px; }
+.chat-scroll::-webkit-scrollbar-thumb { background: rgba(15,23,42,.15); border-radius: 2px; }
+.chat-scroll::-webkit-scrollbar-track { background: transparent; }
 
 .msg {
   max-width: 85%;
@@ -399,8 +400,8 @@ header {
 
 .hero-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(255,255,255,.12);
-  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  border-color: rgba(59,130,246,.3);
+  box-shadow: 0 8px 24px rgba(59,130,246,.15);
 }
 
 .hero-avatar {
@@ -556,7 +557,7 @@ header {
   font-size: 15px;
   font-weight: 700;
   font-family: var(--serif);
-  border: 2px solid rgba(255,255,255,.08);
+  border: 2px solid rgba(15,23,42,.1);
   transition: border-color .3s;
 }
 
@@ -595,7 +596,7 @@ header {
 }
 
 .gb-hero-tag.player-tag {
-  background: rgba(245,158,11,.12);
+  background: rgba(59,130,246,.12);
   color: var(--accent);
 }
 
@@ -627,7 +628,7 @@ header {
   width: 13px;
   height: 13px;
   border-radius: 50%;
-  border: 2px solid rgba(255,255,255,.12);
+  border: 2px solid rgba(15,23,42,.12);
   transition: all .3s;
 }
 
@@ -638,8 +639,8 @@ header {
 }
 
 .hp-dot.empty {
-  border-color: rgba(255,255,255,.06);
-  background: transparent;
+  border-color: rgba(15,23,42,.15);
+  background: rgba(15,23,42,.04);
 }
 
 .hp-dot.danger.filled {
@@ -793,7 +794,7 @@ header {
   justify-content: center;
   gap: 2px;
   transition: all .22s cubic-bezier(.34,1.56,.64,1);
-  border: 1.5px solid rgba(255,255,255,.08);
+  border: 1.5px solid rgba(15,23,42,.12);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -802,7 +803,7 @@ header {
   content: '';
   position: absolute;
   inset: 3px;
-  border: 1px solid rgba(255,255,255,.05);
+  border: 1px solid rgba(15,23,42,.06);
   border-radius: 4px;
   pointer-events: none;
 }
@@ -810,7 +811,7 @@ header {
 .card:hover {
   transform: translateY(-14px) scale(1.08);
   z-index: 10;
-  border-color: rgba(255,255,255,.2);
+  border-color: rgba(15,23,42,.25);
 }
 
 .card:active {
@@ -947,24 +948,24 @@ header {
 }
 
 .gb-btn-secondary {
-  background: rgba(255,255,255,.05);
+  background: var(--surface-2);
   color: var(--text-2);
-  border-color: rgba(255,255,255,.06);
+  border-color: var(--border);
 }
 
 .gb-btn-secondary:hover:not(:disabled) {
-  background: rgba(255,255,255,.09);
+  background: #e2e8f0;
   color: var(--text);
 }
 
 .gb-btn-danger {
-  background: rgba(239,68,68,.06);
-  color: #f87171;
-  border-color: rgba(239,68,68,.1);
+  background: rgba(239,68,68,.1);
+  color: #dc2626;
+  border-color: rgba(239,68,68,.2);
 }
 
 .gb-btn-danger:hover:not(:disabled) {
-  background: rgba(239,68,68,.12);
+  background: rgba(239,68,68,.18);
 }
 
 /* ═══ Sidebar Right ═══ */
@@ -1007,12 +1008,13 @@ header {
 }
 
 .game-log::-webkit-scrollbar { width: 3px; }
-.game-log::-webkit-scrollbar-thumb { background: rgba(255,255,255,.05); border-radius: 2px; }
+.game-log::-webkit-scrollbar-thumb { background: rgba(15,23,42,.15); border-radius: 2px; }
+.game-log::-webkit-scrollbar-track { background: transparent; }
 
 .log-entry {
   padding: 3px 0;
   color: var(--text-3);
-  border-bottom: 1px solid rgba(255,255,255,.02);
+  border-bottom: 1px solid var(--border);
 }
 
 .log-dmg { color: #f87171; }
