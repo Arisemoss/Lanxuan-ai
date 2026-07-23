@@ -1,10 +1,12 @@
 /**
  * 数据持久化API
- * 支持保存和加载用户数据
+ * 支持保存和加载用户数据 - 使用本地JSON文件存储
  */
 
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 
 // 数据版本号（每次数据结构变更时递增）
 const DATA_VERSION = 1;
@@ -94,7 +96,6 @@ router.post('/save', (req, res) => {
       return res.status(400).json({ error: '缺少用户ID' });
     }
 
-    // 验证数据大小（限制1MB）
     const dataSize = JSON.stringify(data).length;
     if (dataSize > 1024 * 1024) {
       return res.status(400).json({ error: '数据大小超过限制' });
@@ -119,10 +120,6 @@ router.post('/save', (req, res) => {
   }
 });
 
-/**
- * GET /api/data/load/:userId
- * 加载用户数据
- */
 router.get('/load/:userId', (req, res) => {
   try {
     const { userId } = req.params;
@@ -159,10 +156,6 @@ router.get('/load/:userId', (req, res) => {
   }
 });
 
-/**
- * DELETE /api/data/delete/:userId
- * 删除用户数据
- */
 router.delete('/delete/:userId', (req, res) => {
   try {
     const { userId } = req.params;
@@ -412,3 +405,7 @@ router.post('/cleanup', (req, res) => {
 });
 
 module.exports = router;
+module.exports.readData = readData;
+module.exports.writeData = writeData;
+module.exports.readUserData = readUserData;
+module.exports.deleteUserData = deleteUserData;

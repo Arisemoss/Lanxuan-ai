@@ -1007,7 +1007,7 @@ async function callAI(userText) {
   }
 }
 
-// 本地智能回复生成器
+// 本地智能回复生成器 - 兰轩室友版
 function generateLocalReply() {
   const history = Store.get('history');
   const lastMsg = history.length > 0 ? history[history.length - 1].content.toLowerCase() : '';
@@ -1088,23 +1088,6 @@ function getStatusTag() {
   return `<情绪(${mood})><好感变化:${likeChange >= 0 ? '+' : ''}${likeChange}><信任变化:${trustChange >= 0 ? '+' : ''}${trustChange}>`;
 }
 
-function generateFallbackReply() {
-  const fallbacks = [
-    '哦↗<情绪(正常)><好感变化:0><信任变化:0>',
-    '嗯...<情绪(正常)><好感变化:0><信任变化:0>',
-    '行吧<情绪(正常)><好感变化:0><信任变化:0>',
-    '切<情绪(不屑)><好感变化:-1><信任变化:0>',
-    '你说啥？<情绪(疑惑)><好感变化:0><信任变化:0>',
-    '别吵，困了。<情绪(困倦)><好感变化:-1><信任变化:0>',
-    '就这？<情绪(不屑)><好感变化:0><信任变化:0>',
-    '（打哈欠）<情绪(困倦)><好感变化:0><信任变化:0>',
-    '那又怎样？<情绪(不屑)><好感变化:0><信任变化:0>',
-    '随便你。<情绪(正常)><好感变化:0><信任变化:0>',
-    '哦，这样啊。<情绪(正常)><好感变化:0><信任变化:0>',
-    '行，知道了。<情绪(正常)><好感变化:+1><信任变化:0>'
-  ];
-  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-}
 
 // ═══ 发送消息 ═══
 async function sendMsg() {
@@ -1696,13 +1679,53 @@ function endGame(reason) {
     showOverlay('你投降了', '兰轩一脸不屑地看着你。');
   } else {
     addMsg('a', '（不爽）打到一半跑了？下次别找我打。');
-    addLog('对局中断', 'log-dmg');
+    S.like = Math.max(0, S.like - 1);
+    addLog('对局中断，好感度 -1', 'log-dmg');
   }
 
   Store.set('mood', '正常');
   renderProfile();
   renderGame();
   saveUserData();
+}
+
+// ═══ 数据导出 ═══
+function exportData() {
+  const data = {
+    like: S.like,
+    trust: S.trust,
+    mood: S.mood,
+    history: S.history.slice(-50),
+    userId: S.userId,
+    exportedAt: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'lanxuan-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  addMsg('a', '（瞥了一眼）备份好了。别弄丢了。');
+}
+
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (typeof data.like === 'number') S.like = data.like;
+      if (typeof data.trust === 'number') S.trust = data.trust;
+      if (data.mood) S.mood = data.mood;
+      if (Array.isArray(data.history)) S.history = data.history;
+      renderProfile();
+      saveUserData();
+      addMsg('a', '（挠头）哦，数据回来了。继续聊天还是打牌？');
+    } catch (err) {
+      addMsg('a', '（皱眉）这什么文件？打不开。');
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ═══ 摸牌 ═══
