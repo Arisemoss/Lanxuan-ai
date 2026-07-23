@@ -16,8 +16,8 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/你的用户名/你的仓库名.git
-cd 你的仓库名
+git clone https://github.com/<你的用户名>/<你的仓库名>.git
+cd <你的仓库名>
 
 # 安装依赖
 npm install
@@ -30,7 +30,7 @@ npm run dev
 
 ### 部署到Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/你的用户名/你的仓库名)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/<你的用户名>/<你的仓库名>)
 
 1. 点击上方按钮
 2. 连接你的GitHub账号
