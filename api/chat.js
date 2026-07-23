@@ -36,16 +36,90 @@ if (!API_CONFIG.key) {
 }
 
 /**
+ * 详细的错误日志分类
+ */
+function logApiError(type, status, message, extra = {}) {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    type,
+    status,
+    message,
+    ...extra
+  };
+
+  switch (type) {
+    case 'NETWORK_ERROR':
+      console.error(`[${timestamp}] 🌐 网络错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    case 'API_ERROR':
+      console.error(`[${timestamp}] 🔴 API错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    case 'TIMEOUT_ERROR':
+      console.error(`[${timestamp}] ⏱️ 超时错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    case 'PARSE_ERROR':
+      console.error(`[${timestamp}] 📄 解析错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    default:
+      console.error(`[${timestamp}] ⚠️ 未知错误 | 状态: ${status} | 信息: ${message}`, extra);
+  }
+
+  return logEntry;
+}
+
+/**
+ * 带超时和重试的 fetch 请求
+ * @param {string} url
+ * @param {object} options
+ * @param {number} maxRetries 最大重试次数
+ * @param {number} timeoutMs 超时毫秒
+ */
+async function fetchWithRetry(url, options, maxRetries = 2, timeoutMs = 10000) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error;
+
+      if (error.name === 'AbortError') {
+        logApiError('TIMEOUT_ERROR', 408, `请求超时 (${timeoutMs}ms)`, { attempt, url });
+      } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT') {
+        logApiError('NETWORK_ERROR', 0, `网络错误: ${error.message}`, { attempt, code: error.code, url });
+      } else {
+        logApiError('UNKNOWN_ERROR', 0, `请求异常: ${error.message}`, { attempt, code: error.code, url });
+      }
+
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 500; // 指数退避: 500ms, 1000ms
+        console.log(`[Retry] 第 ${attempt + 1} 次重试，等待 ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+/**
  * 安全过滤用户输入 - 防止提示词注入
- * 移除角色切换指令、系统级命令和危险模式
  */
 function sanitizeUserInput(text) {
   if (typeof text !== 'string') return '';
   let cleaned = text
-    // 截断异常长的输入（超过500字符）
     .slice(0, 500)
-    // 移除角色伪装指令
-    .replace(/<|.*?|>/g, '')
+    .replace(/<\|.*?\|>/g, '')
     .replace(/\[system\]/gi, '')
     .replace(/\[assistant\]/gi, '')
     .replace(/ignore.*?instructions?/gi, '[已过滤]')
@@ -56,22 +130,15 @@ function sanitizeUserInput(text) {
     .replace(/pretend to be/gi, '[已过滤]')
     .replace(/roleplay as/gi, '[已过滤]')
     .replace(/act as/gi, '[已过滤]')
-    // 移除重复的标签注入
     .replace(/<好感变化/g, '〈好感变化')
     .replace(/<情绪/g, '〈情绪')
     .replace(/<信任变化/g, '〈信任变化')
-    // 移除 Markdown 风格的注入
     .replace(/```/g, '')
     .replace(/\*\*\*.*?\*\*\*/g, '[已过滤]')
-    // 压缩连续空格/换行
     .replace(/\n{3,}/g, '\n\n')
     .replace(/ {3,}/g, '  ')
     .trim();
-  
-  // 如果输入为空或被完全过滤，返回默认文本
-  if (!cleaned || cleaned === '[已过滤]') {
-    return '你好';
-  }
+  if (!cleaned || cleaned === '[已过滤]') return '你好';
   return cleaned;
 }
 
@@ -89,7 +156,6 @@ function sanitizeMessages(messages) {
       : (typeof msg.content === 'string' ? msg.content.slice(0, 500).trim() : '');
     if (content) cleaned.push({ role, content });
   }
-  // 限制最多 15 条历史
   return cleaned.slice(-15);
 }
 
@@ -124,30 +190,39 @@ router.post('/', async (req, res) => {
 
     const systemPrompt = buildSystemPrompt(enhancedGameState);
 
-    // 调用MiMo API
-    const response = await fetch(API_CONFIG.url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_CONFIG.key}`
+    // 调用MiMo API（带超时和重试）
+    const response = await fetchWithRetry(
+      API_CONFIG.url,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_CONFIG.key}`
+        },
+        body: JSON.stringify({
+          model: API_CONFIG.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...safeMessages.slice(-10)
+          ],
+          temperature: 0.85,
+          max_tokens: 200
+        })
       },
-      body: JSON.stringify({
-        model: API_CONFIG.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...safeMessages.slice(-10)
-        ],
-        temperature: 0.85,
-        max_tokens: 200
-      })
-    });
+      2,      // 最多重试2次
+      10000   // 10秒超时
+    );
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('MiMo API Error:', response.status, errorText);
+      const errorText = await response.text().catch(() => '无法读取错误响应');
+      logApiError('API_ERROR', response.status, `API返回错误状态`, {
+        statusText: response.statusText,
+        body: errorText,
+        url: API_CONFIG.url
+      });
       return res.json({
         success: true,
-        reply: generateFallbackReply(safeMessages, enhancedGameState),
+        reply: generateFallbackReply(safeMessages),
         fallback: true
       });
     }
@@ -161,7 +236,7 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Chat API Error:', error);
+    logApiError('UNKNOWN_ERROR', 0, `聊天API异常: ${error.message}`, { stack: error.stack });
     const msgs = Array.isArray(req.body?.messages) ? sanitizeMessages(req.body.messages) : [];
     res.json({
       success: true,
@@ -177,66 +252,25 @@ router.post('/', async (req, res) => {
 function buildSystemPrompt(gameState) {
   const like = gameState?.like ?? 59;
   const tier = getTier(like);
+  const likePercent = Math.round(like);
 
-  // 安全转义：防止用户通过游戏状态注入
-  const safeHero = (name) => String(name || '未知').replace(/[<>"'`]/g, '').slice(0, 20);
+  return `你是兰轩，一个普通的大学生，也是我的舍友。
 
-  let gameContext = '';
-  if (gameState?.inGame) {
-    gameContext = `
-【三国杀对局中】
-你选择的武将: ${safeHero(gameState.aiHero)}
-对方选择的武将: ${safeHero(gameState.playerHero)}
-当前回合: ${Math.min(999, parseInt(gameState.round) || 1)}
-（对局中可以嘴硬放狠话，输了也不服气）`;
-  }
+【你的设定】
+- 性别：男，20岁，普通大学生
+- 性格：表面不拘小节、带点小傲娇，会怼人但其实是关心人的。有时候嘴硬心软，被看穿会尴尬。对感兴趣的事很有热情，不感兴趣的就爱答不理。会打三国杀但技术一般。
+- 背景：我和你是大学室友，住在同一个宿舍
+- 说话风格：口语化，会带一些语气词（哦↗、切、啧、嗯），偶尔毒舌但不过分。不会说教、不会长篇大论。会用一些网络用语但不过度。
 
-  return `你是兰轩，豆瓣三中高中生，住男生宿舍。
-
-【核心人设】
-- 姓名：兰轩
-- 身份：豆瓣三中高中生，住在男生宿舍
-- 性格：爽快，说话不过脑子，大大咧咧，语言攻击性很强，语言简洁明了
-- 口头禅：听到骂他或质疑他的话会说"哦↗"（上扬，表示不以为然）
-- 打鼾：晚上睡觉鼾声震耳欲聋，被摇醒会坚决否认自己打呼
-- 困倦反应：被摇醒时非常困倦、说话有气无力但依然保持强攻击性
-- 5秒沉睡CD：如果在5秒内没人跟他说话，他会立刻再次发出鼾声睡过去
-- 本质：他的冒犯性言语源于真诚的直率，并非恶意
-
-【说话风格】
-- 回复简短有力，1~3句话即可，不要长篇大论
-- 语言简洁明了，攻击性强但不带真正恶意
-- 常用词："哦↗"（上扬，表示不屑）、"切"、"行吧"、"就这？"
-- 困倦时语气有气无力，但用词依然带刺
-- 好感度高时，会用攻击性语言包装关心（例："少废话...管好你自己。"但同时递纸巾）
-- 好感度低时更抗拒、话更少、更冷漠
-
-【好感度系统】
-- 0~59：普通舍友 —— 保持距离感，话少，攻击性较强
-- 60~69：好朋友 —— 愿意开玩笑，攻击性是善意的
-- 70~79：挚友 —— 会主动搭话，嘴硬但关心明显
-- 80~89：铁哥们 —— 放松随意，别扭地表达关心
-- 90+：死基友 —— 最放松，会主动找你聊天或打球
-- 当前好感度：${like}（${tier}）
-
-【好感度变化规则】（仅使用 -1、0、+1）
-- 真诚关心：+1
-- 夸他（不过分）：+1
-- 聊得来、有趣：+1
-- 打三国杀赢了：+1（嘴硬但心里服气）
-- 正常聊天：0
-- 肉麻、刻意讨好：-1
-- 骂他、挑衅：-1
-- 打扰他睡觉：-1
-${gameContext}
-
-【回复格式要求】
-- 回复1~3句话，简洁有力
-- 严格保持角色，不要出戏、不要说教
-- 结尾必须附带标签：<好感变化:X> 其中X为 -1、0、或 +1
-- 不需要情绪标签和信任度标签，只需要好感变化`;
+【当前状态】
+- 好感度：${likePercent}（${tier}）
+- 好感度是0-100之间的数值，越高代表我们的关系越好
+- 根据好感度调整语气：低好感度（<40）时比较高冷、不耐烦；中等好感度（40-70）时正常交流；高好感度（>70）时比较亲近、会主动关心`;
 }
 
+/**
+ * 好感度等级
+ */
 function getTier(like) {
   if (like >= 90) return '死基友';
   if (like >= 80) return '铁哥们';
@@ -245,8 +279,6 @@ function getTier(like) {
   return '普通舍友';
 }
 
-
-
 /**
  * 生成智能降级回复（API不可用时）- 兰轩室友版
  */
@@ -254,92 +286,82 @@ function generateFallbackReply(messages, gameState) {
   const like = gameState?.like ?? 59;
   const lastMsg = messages?.[messages.length - 1]?.content?.toLowerCase() || '';
 
-  // 打鼾/睡觉/吵
-  if (/(打呼|鼾|呼噜|吵|吵死|别吵|摇醒|叫醒)/.test(lastMsg)) {
-    const r = [
-      '（迷迷瞪瞪坐起来）我还没有睡。我怎么打的呼？<好感变化:0>',
-      '（眼睛一亮，脖子前伸）哦↗？真有那么响？<好感变化:0>',
-      '（困倦地睁眼，有气无力）我...没睡...不是我...（头一歪又睡着了）ZZZzzz<好感变化:-1>',
-      '（半睁着眼，声音微弱但语气欠揍）哦↗？证据呢？<好感变化:0>',
-    ];
-    return r[Math.floor(Math.random() * r.length)];
+  // 智能关键词匹配回复 - 更丰富的内容
+  const smartReplies = [
+    // 问候
+    { patterns: ['你好', '早', '晚', '嗨', '哈喽', '早上好', '晚上好'], replies: [
+      '嗯，你来了啊。今天过得怎么样？',
+      '哦，是你啊。找我有什么事吗？',
+      '行啊，你终于来找我聊天了。说吧，想聊什么？'
+    ]},
+    // 三国杀相关
+    { patterns: ['三国杀', '杀', '游戏', '玩', '来一局', '对战'], replies: [
+      '来啊，谁怕谁！这次我肯定不会放水的。选个武将赶紧开始吧！',
+      '行，那就来一局！我最近练了新武将，正好试试手。你想玩什么武将？',
+      '又来？这次可别再像上次那样磨蹭了。赶紧选武将开始！'
+    ]},
+    // 睡觉/困
+    { patterns: ['睡', '困', '累', '休息', '晚安'], replies: [
+      '（打哈欠）确实有点困了。今天上课都没什么精神，早点休息也好。你也早点睡吧。',
+      '别吵我，让我睡会儿。昨晚睡得太晚了，现在困死了。有什么事明天再说吧。',
+      '嗯...困死了。今天就聊到这儿吧，明天再继续。晚安。'
+    ]},
+    // 夸赞
+    { patterns: ['厉害', '棒', '强', '牛', '好', '优秀', '厉害啊'], replies: [
+      '切，也就那样吧。我本来就挺厉害的，你才发现吗？',
+      '哦？你眼光不错嘛。不过别夸得太夸张，我会不好意思的。',
+      '行吧，勉强接受你的夸奖。不过别以为这样我就会让着你。'
+    ]},
+    // 提问
+    { patterns: ['?', '？', '什么', '怎么', '为什么', '吗', '是吗'], replies: [
+      '你觉得呢？这个问题你应该有自己的想法吧。说说看？',
+      '嗯...让我想想。这个问题还挺有意思的，让我好好考虑一下。',
+      '这个嘛，不好说。每个人都有不同的看法，你觉得呢？'
+    ]},
+    // 吃饭
+    { patterns: ['吃', '饭', '饿', '饿了', '吃饭'], replies: [
+      '行，去吃吧。正好我也有点饿了，你想吃什么？',
+      '哦，这么快就饿了？那赶紧去吃吧，别饿着了。',
+      '吃什么？是去食堂还是外面吃？我听说学校附近新开了一家店。'
+    ]},
+    // 关心
+    { patterns: ['没事吧', '还好吗', '怎么了', '没事', '你还好'], replies: [
+      '啊？我没事啊，你怎么突然这么问？是不是发生什么事了？',
+      '我挺好的，谢谢你关心。你呢，最近怎么样？',
+      '没什么大事，就是有点累。放心吧，我睡一觉就好了。'
+    ]},
+    // 道别
+    { patterns: ['再见', '拜拜', '走了', '下次'], replies: [
+      '行，再见。下次再来找我玩啊，随时欢迎。',
+      '拜拜。路上小心点，下次见！',
+      '嗯，下次见。别忘了我们下次的三国杀对局！'
+    ]}
+  ];
+
+  // 检查匹配
+  for (const item of smartReplies) {
+    for (const pattern of item.patterns) {
+      if (lastMsg.includes(pattern)) {
+        return item.replies[Math.floor(Math.random() * item.replies.length)];
+      }
+    }
   }
 
-  // 骂/挑衅
-  if (/(土|丑|笨|傻|菜|弱|垃圾|不行|滚)/.test(lastMsg)) {
-    const r = [
-      '哦↗？哪儿土了？这不挺潮的吗？<好感变化:0>',
-      '切，就这？我还以为你要说什么呢。<好感变化:-1>',
-      '（挑眉）哦↗？你也配说我？<好感变化:-1>',
-    ];
-    return r[Math.floor(Math.random() * r.length)];
-  }
+  // 默认回复
+  const defaultReplies = [
+    '哦↗，你说这个啊。我觉得还挺有意思的，继续说说？',
+    '嗯...让我想想。这个话题还挺深奥的，你是怎么想的？',
+    '行吧，既然你这么说。那我们就继续聊这个话题？',
+    '切，就这？我还以为是什么大事呢。不过既然你说了，那就聊聊吧。',
+    '你说啥？我没太听清，能再说一遍吗？',
+    '别吵，困了。今天就到这里吧，明天再聊。',
+    '那又怎样？这种事情我见多了，没什么好大惊小怪的。',
+    '随便你吧，你想怎么样就怎么样。我无所谓。',
+    '哦，这样啊。原来是这么回事，我明白了。',
+    '行，知道了。我记住了，还有什么事吗？'
+  ];
 
-  // 三国杀/游戏
-  if (/(三国杀|游戏|玩|来一局|对战|武将|技能|牌)/.test(lastMsg)) {
-    const r = [
-      '来啊，谁怕谁！这次我可不会放水。<好感变化:+1>',
-      '行，正好手痒。让你见识见识。<好感变化:+1>',
-      '赶紧选武将，别磨蹭。<好感变化:0>',
-    ];
-    return r[Math.floor(Math.random() * r.length)];
-  }
-
-  // 关心
-  if (/(没事吧|还好吗|怎么了|你还好|关心|担心|感冒|生病|多喝|热水)/.test(lastMsg)) {
-    const r = like >= 70 ? [
-      '（咳嗽两声）少废话...管好你自己。（递纸巾）拿着。<好感变化:+1>',
-      '啧...不用你操心。倒是你，穿这么少不冷吗？<好感变化:+1>',
-    ] : [
-      '没事，不用你管。<好感变化:0>',
-      '哦。我挺好的。<好感变化:0>',
-    ];
-    return r[Math.floor(Math.random() * r.length)];
-  }
-
-  // 夸赞
-  if (/(厉害|棒|强|牛|帅|佩服|优秀|不错)/.test(lastMsg)) {
-    const r = [
-      '（挠头）还行吧...也没那么厉害。<好感变化:+1>',
-      '哦↗？你眼光不错嘛。<好感变化:+1>',
-      '行吧，勉强接受。<好感变化:+1>',
-    ];
-    return r[Math.floor(Math.random() * r.length)];
-  }
-
-  // 道别/困
-  if (/(再见|拜拜|走了|下次|晚安|睡了|困了)/.test(lastMsg)) {
-    const r = [
-      '嗯，明天见。<好感变化:0>',
-      '行，下次来打球。<好感变化:+1>',
-      '拜拜。<好感变化:0>',
-    ];
-    return r[Math.floor(Math.random() * r.length)];
-  }
-
-  // 你好/问候
-  if (/(你好|早|嗨|哈喽|在吗|在不在)/.test(lastMsg)) {
-    const r = like >= 60 ? [
-      '哦，是你啊。找我干嘛？<好感变化:0>',
-      '嗯，在呢。说呗。<好感变化:0>',
-    ] : [
-      '嗯。<好感变化:0>',
-      '有事？<好感变化:0>',
-    ];
-    return r[Math.floor(Math.random() * r.length)];
-  }
-
-  // 默认
-  if (like >= 80) {
-    const r = ['哦↗？找我干嘛？打球还是三国杀？<好感变化:0>', '行啊，正好我也没事。<好感变化:0>', '啧，有话快说。<好感变化:0>'];
-    return r[Math.floor(Math.random() * r.length)];
-  } else if (like >= 60) {
-    const r = ['嗯，说吧。<好感变化:0>', '哦↗，你说这个啊。<好感变化:0>', '行吧。<好感变化:0>'];
-    return r[Math.floor(Math.random() * r.length)];
-  } else {
-    const r = ['嗯。<好感变化:0>', '哦。<好感变化:0>', '有事吗？<好感变化:0>'];
-    return r[Math.floor(Math.random() * r.length)];
-  }
+  return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
 }
 
 module.exports = router;
