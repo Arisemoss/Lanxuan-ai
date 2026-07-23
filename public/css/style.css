@@ -2408,9 +2408,9 @@ body.no-animations .record-item:hover {
 }
 
 .gb-skill-btn.active-skill {
-  background: rgba(168,85,247,.25);
-  border-color: rgba(168,85,247,.4);
-  box-shadow: 0 0 12px rgba(168,85,247,.15);
+  background: rgba(37,99,235,.22);
+  border-color: rgba(37,99,235,.4);
+  box-shadow: 0 0 12px rgba(37,99,235,.15);
 }
 
 .gb-deck-pile {
@@ -2436,6 +2436,7 @@ body.no-animations .record-item:hover {
   justify-content: center;
   color: var(--deck-card-color);
   font-family: var(--serif);
+  box-shadow: 0 2px 8px rgba(37,99,235,.2);
 }
 
 .deck-count {
@@ -2613,7 +2614,7 @@ body.no-animations .record-item:hover {
 }
 
 .gb-btn-primary {
-  background: var(--accent);
+  background: #2563eb;
   color: #ffffff;
 }
 

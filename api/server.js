@@ -1,6 +1,9 @@
 /**
  * 兰轩在线平台 - 后端API服务
  * 隐藏API密钥，提供安全的聊天和数据持久化服务
+ * 
+ * 注意：在 Vercel Serverless 环境下，api/data.js 的文件持久化不适用。
+ * 如需完整 Serverless 支持，请使用 Netlify 或外置数据库。
  */
 
 const express = require('express');
@@ -133,7 +136,7 @@ app.use(express.json({ limit: '1mb' }));
 // ==================== 静态文件与路由 ====================
 
 // 静态文件服务
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // API路由
 app.use('/api/chat', require('./chat'));
@@ -150,7 +153,7 @@ app.get('/api/health', (req, res) => {
 
 // SPA回退 - 所有非API请求返回index.html
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
 // 错误处理中间件
