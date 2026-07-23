@@ -16,15 +16,19 @@ const dataStore = new Map();
 router.post('/save', (req, res) => {
   try {
     const { userId, data } = req.body;
-    
-    if (!userId) {
-      return res.status(400).json({ error: '缺少用户ID' });
+
+    if (!userId || typeof userId !== 'string') {
+      return res.status(400).json({ error: '请求参数错误' });
     }
 
-    // 验证数据大小（限制1MB）
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return res.status(400).json({ error: '请求参数错误' });
+    }
+
+    // 验证数据大小（限制100KB）
     const dataSize = JSON.stringify(data).length;
-    if (dataSize > 1024 * 1024) {
-      return res.status(400).json({ error: '数据大小超过限制' });
+    if (dataSize > 100 * 1024) {
+      return res.status(400).json({ error: '请求参数错误' });
     }
 
     // 保存数据
@@ -52,9 +56,9 @@ router.post('/save', (req, res) => {
 router.get('/load/:userId', (req, res) => {
   try {
     const { userId } = req.params;
-    
-    if (!userId) {
-      return res.status(400).json({ error: '缺少用户ID' });
+
+    if (!userId || typeof userId !== 'string') {
+      return res.status(400).json({ error: '请求参数错误' });
     }
 
     const data = dataStore.get(userId);
@@ -85,9 +89,9 @@ router.get('/load/:userId', (req, res) => {
 router.delete('/delete/:userId', (req, res) => {
   try {
     const { userId } = req.params;
-    
-    if (!userId) {
-      return res.status(400).json({ error: '缺少用户ID' });
+
+    if (!userId || typeof userId !== 'string') {
+      return res.status(400).json({ error: '请求参数错误' });
     }
 
     const deleted = dataStore.delete(userId);
