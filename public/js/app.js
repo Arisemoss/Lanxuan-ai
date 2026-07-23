@@ -950,7 +950,10 @@ function useSkill() {
     case 'guanyu': {
       const redCards = G.player.hand.filter(c => c.color === 'red');
       if (redCards.length === 0) { addLog('你没有红色牌可以弃置', ''); return; }
-      const idx = G.player.hand.indexOf(redCards[0]);
+      // 优先弃置非杀红色牌，保留杀用于进攻
+      const redNonSha = redCards.filter(c => c.type !== 'sha');
+      const cardToDiscard = redNonSha.length > 0 ? redNonSha[0] : redCards[0];
+      const idx = G.player.hand.indexOf(cardToDiscard);
       G.player.hand.splice(idx, 1);
       G.player.skillUsed = true;
       G.player.skillState = 'yijue';
