@@ -1238,7 +1238,7 @@ header {
 }
 .settings-btn:hover {
   opacity: 1;
-  background: rgba(255,255,255,.08);
+  background: rgba(0,0,0,.06);
 }
 
 /* ═══ Settings Modal ═══ */

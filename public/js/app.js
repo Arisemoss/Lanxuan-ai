@@ -618,24 +618,6 @@ function getStatusTag() {
   return `<情绪(${mood})><好感变化:${likeChange >= 0 ? '+' : ''}${likeChange}><信任变化:${trustChange >= 0 ? '+' : ''}${trustChange}>`;
 }
 
-function generateFallbackReply() {
-  const fallbacks = [
-    '哦↗<情绪(正常)><好感变化:0><信任变化:0>',
-    '嗯...<情绪(正常)><好感变化:0><信任变化:0>',
-    '行吧<情绪(正常)><好感变化:0><信任变化:0>',
-    '切<情绪(不屑)><好感变化:-1><信任变化:0>',
-    '你说啥？<情绪(疑惑)><好感变化:0><信任变化:0>',
-    '别吵，困了。<情绪(困倦)><好感变化:-1><信任变化:0>',
-    '就这？<情绪(不屑)><好感变化:0><信任变化:0>',
-    '（打哈欠）<情绪(困倦)><好感变化:0><信任变化:0>',
-    '那又怎样？<情绪(不屑)><好感变化:0><信任变化:0>',
-    '随便你。<情绪(正常)><好感变化:0><信任变化:0>',
-    '哦，这样啊。<情绪(正常)><好感变化:0><信任变化:0>',
-    '行，知道了。<情绪(正常)><好感变化:+1><信任变化:0>'
-  ];
-  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-}
-
 // ═══ 发送消息 ═══
 async function sendMsg() {
   const input = document.getElementById('chatInput');

@@ -62,7 +62,11 @@ router.post('/', async (req, res) => {
     // 优先使用用户提供的API密钥，其次使用服务器配置
     const activeKey = apiKey || API_CONFIG.key;
     const activeProvider = provider || 'mimo';
-    const activeModel = model || API_CONFIG.model;
+    // 根据提供商选择默认模型，避免将 MiMo 模型发送到其他提供商
+    const defaultModel = activeProvider === 'mimo'
+      ? API_CONFIG.model
+      : (PROVIDERS[activeProvider]?.models?.[0] || API_CONFIG.model);
+    const activeModel = model || defaultModel;
 
     // 如果用户没有提供API密钥且服务器也没有配置，返回降级响应
     if (!activeKey) {
@@ -171,7 +175,7 @@ router.post('/', async (req, res) => {
 });
 
 /**
- * POST /api/providers
+ * GET /api/chat/providers
  * 返回支持的AI提供商列表
  */
 router.get('/providers', (req, res) => {
