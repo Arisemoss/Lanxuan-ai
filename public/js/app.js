@@ -10,7 +10,25 @@ const S = {
   mood: '正常',
   history: [],
   busy: false,
-  userId: null
+  userId: null,
+  // API设置
+  apiSettings: {
+    provider: 'mimo',
+    apiKey: '',
+    model: 'mimo-v2-flash',
+    apiUrl: ''
+  }
+};
+
+// AI提供商模型映射
+const PROVIDER_MODELS = {
+  mimo: ['mimo-v2-flash'],
+  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+  moonshot: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+  siliconflow: ['deepseek-ai/DeepSeek-V3', 'deepseek-ai/DeepSeek-R1', 'Qwen/Qwen2.5-72B-Instruct'],
+  openrouter: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash'],
+  custom: ['custom']
 };
 
 // ═══ 卡牌定义 ═══
@@ -87,9 +105,11 @@ const G = {
 document.addEventListener('DOMContentLoaded', () => {
   initUserId();
   loadUserData();
+  loadApiSettings();
   initClock();
   renderProfile();
   renderHeroCards();
+  checkOnboarding();
 });
 
 // ═══ 用户ID与数据持久化 ═══
@@ -157,6 +177,206 @@ async function loadUserData() {
   } catch (e) {
     // 后端不可用，继续使用本地数据
   }
+}
+
+// ═══ API密钥管理 ═══
+function loadApiSettings() {
+  try {
+    const saved = localStorage.getItem('lanxuan_api_settings');
+    if (saved) {
+      S.apiSettings = JSON.parse(saved);
+      // 更新设置界面
+      document.getElementById('providerSelect').value = S.apiSettings.provider;
+      document.getElementById('apiKeyInput').value = S.apiSettings.apiKey;
+      document.getElementById('modelSelect').value = S.apiSettings.model;
+      document.getElementById('customApiUrl').value = S.apiSettings.apiUrl;
+      updateModelOptions(S.apiSettings.provider);
+      updateApiStatus();
+    }
+  } catch (e) {
+    console.warn('加载API设置失败');
+  }
+}
+
+function saveApiSettings() {
+  const provider = document.getElementById('providerSelect').value;
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  const model = document.getElementById('modelSelect').value;
+  const apiUrl = document.getElementById('customApiUrl').value.trim();
+
+  S.apiSettings = { provider, apiKey, model, apiUrl };
+  localStorage.setItem('lanxuan_api_settings', JSON.stringify(S.apiSettings));
+  
+  updateApiStatus();
+  closeSettings();
+  showToast('API设置已保存');
+}
+
+function showSettings() {
+  // 加载当前设置到界面
+  document.getElementById('providerSelect').value = S.apiSettings.provider;
+  document.getElementById('apiKeyInput').value = S.apiSettings.apiKey;
+  document.getElementById('modelSelect').value = S.apiSettings.model;
+  document.getElementById('customApiUrl').value = S.apiSettings.apiUrl;
+  onProviderChange();
+  updateApiStatus();
+  document.getElementById('settingsOverlay').classList.add('show');
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('show');
+}
+
+function onProviderChange() {
+  const provider = document.getElementById('providerSelect').value;
+  const customUrlGroup = document.getElementById('customUrlGroup');
+  
+  if (provider === 'custom') {
+    customUrlGroup.style.display = 'block';
+  } else {
+    customUrlGroup.style.display = 'none';
+  }
+  
+  updateModelOptions(provider);
+}
+
+function updateModelOptions(provider) {
+  const select = document.getElementById('modelSelect');
+  const models = PROVIDER_MODELS[provider] || PROVIDER_MODELS.mimo;
+  
+  select.innerHTML = '';
+  models.forEach(m => {
+    const option = document.createElement('option');
+    option.value = m;
+    option.textContent = m;
+    select.appendChild(option);
+  });
+  
+  // 如果当前保存的模型在列表中，选中它
+  if (models.includes(S.apiSettings.model)) {
+    select.value = S.apiSettings.model;
+  }
+}
+
+function toggleApiKeyVisibility() {
+  const input = document.getElementById('apiKeyInput');
+  const toggle = document.getElementById('apiKeyToggle');
+  if (input.type === 'password') {
+    input.type = 'text';
+    toggle.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    toggle.textContent = '👁';
+  }
+}
+
+async function testApiConnection() {
+  const statusDot = document.getElementById('apiStatusDot');
+  const statusText = document.getElementById('apiStatusText');
+  
+  statusDot.className = 'api-status-dot testing';
+  statusText.textContent = '测试中...';
+  
+  const provider = document.getElementById('providerSelect').value;
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  const model = document.getElementById('modelSelect').value;
+  const apiUrl = document.getElementById('customApiUrl').value.trim();
+  
+  if (!apiKey) {
+    statusDot.className = 'api-status-dot error';
+    statusText.textContent = '请先输入API密钥';
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: '你好' }],
+        apiKey,
+        provider,
+        model,
+        apiUrl,
+        gameState: { like: 59, trust: 50, mood: '正常', inGame: false }
+      })
+    });
+    
+    const data = await response.json();
+    if (data.apiError) {
+      statusDot.className = 'api-status-dot error';
+      statusText.textContent = 'API密钥无效';
+    } else if (data.fallback) {
+      statusDot.className = 'api-status-dot error';
+      statusText.textContent = '连接失败，请检查设置';
+    } else {
+      statusDot.className = 'api-status-dot connected';
+      statusText.textContent = '连接成功 ✓';
+    }
+  } catch (e) {
+    statusDot.className = 'api-status-dot error';
+    statusText.textContent = '连接失败: ' + e.message;
+  }
+}
+
+function updateApiStatus() {
+  const statusDot = document.getElementById('apiStatusDot');
+  const statusText = document.getElementById('apiStatusText');
+  
+  if (S.apiSettings.apiKey) {
+    statusDot.className = 'api-status-dot configured';
+    statusText.textContent = '已配置（点击测试连接验证）';
+  } else {
+    statusDot.className = 'api-status-dot';
+    statusText.textContent = '未配置';
+  }
+}
+
+// ═══ 新手引导 ═══
+function checkOnboarding() {
+  const seen = localStorage.getItem('lanxuan_onboarding_seen');
+  if (!seen) {
+    setTimeout(() => {
+      showOnboarding();
+    }, 500);
+  }
+}
+
+function showOnboarding() {
+  // 重置到第一步
+  document.getElementById('obStep1').style.display = 'block';
+  document.getElementById('obStep2').style.display = 'none';
+  document.getElementById('obStep3').style.display = 'none';
+  document.getElementById('obStep4').style.display = 'none';
+  document.getElementById('onboardingOverlay').classList.add('show');
+}
+
+function nextOnboardingStep(currentStep) {
+  const nextStep = currentStep + 1;
+  document.getElementById('obStep' + currentStep).style.display = 'none';
+  const nextEl = document.getElementById('obStep' + nextStep);
+  if (nextEl) {
+    nextEl.style.display = 'block';
+  }
+}
+
+function closeOnboarding() {
+  document.getElementById('onboardingOverlay').classList.remove('show');
+  localStorage.setItem('lanxuan_onboarding_seen', 'true');
+}
+
+// ═══ Toast提示 ═══
+function showToast(text) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.className = 'toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
 // ═══ 时钟 ═══
@@ -258,7 +478,7 @@ function updateMood(text) {
   }
 }
 
-// ═══ API调用（密钥已隐藏在后端） ═══
+// ═══ API调用（支持用户自定义API密钥） ═══
 async function callAI(userText) {
   const gameState = {
     like: S.like,
@@ -276,7 +496,12 @@ async function callAI(userText) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messages: S.history,
-        gameState
+        gameState,
+        // 发送用户自定义API设置
+        apiKey: S.apiSettings.apiKey || undefined,
+        provider: S.apiSettings.provider || undefined,
+        model: S.apiSettings.model || undefined,
+        apiUrl: S.apiSettings.apiUrl || undefined
       })
     });
 
@@ -285,6 +510,14 @@ async function callAI(userText) {
     }
 
     const data = await response.json();
+    
+    // 如果后端提示需要API密钥，在聊天中显示提示
+    if (data.needApiKey && !S.apiSettings.apiKey) {
+      setTimeout(() => {
+        addMsg('a', '（兰轩瞥了你一眼）喂，你还没配API密钥呢。去设置一下，我说话能更带劲。');
+      }, 100);
+    }
+    
     return data.reply || generateLocalReply();
 
   } catch (error) {
@@ -1468,5 +1701,14 @@ window.playCard = playCard;
 window.endTurn = endTurn;
 window.endGame = endGame;
 window.closeOverlay = closeOverlay;
+window.showSettings = showSettings;
+window.closeSettings = closeSettings;
+window.saveApiSettings = saveApiSettings;
+window.onProviderChange = onProviderChange;
+window.toggleApiKeyVisibility = toggleApiKeyVisibility;
+window.testApiConnection = testApiConnection;
+window.showOnboarding = showOnboarding;
+window.nextOnboardingStep = nextOnboardingStep;
+window.closeOnboarding = closeOnboarding;
 window.toggleMobileSidebar = toggleMobileSidebar;
 window.closeMobileSidebars = closeMobileSidebars;
