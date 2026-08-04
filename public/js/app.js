@@ -1389,3 +1389,53 @@ window.playCard = playCard;
 window.endTurn = endTurn;
 window.endGame = endGame;
 window.closeOverlay = closeOverlay;
+
+// ═══ 鼠标跟随光晕效果 ═══
+document.addEventListener('DOMContentLoaded', () => {
+  const cursorGlow = document.getElementById('cursorGlow');
+  if (!cursorGlow) return;
+  
+  let mouseX = 0, mouseY = 0;
+  let glowX = 0, glowY = 0;
+  
+  document.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
+  
+  // 平滑跟随动画
+  function animateGlow() {
+    glowX += (mouseX - glowX) * 0.12;
+    glowY += (mouseY - glowY) * 0.12;
+    cursorGlow.style.left = glowX + 'px';
+    cursorGlow.style.top = glowY + 'px';
+    requestAnimationFrame(animateGlow);
+  }
+  animateGlow();
+  
+  // 鼠标离开窗口时隐藏
+  document.addEventListener('mouseleave', () => {
+    cursorGlow.style.opacity = '0';
+  });
+  
+  document.addEventListener('mouseenter', () => {
+    cursorGlow.style.opacity = '1';
+  });
+  
+  // 面板入场动画
+  setTimeout(() => {
+    const panels = document.querySelectorAll('.sidebar-left, .sidebar-right, .chat-panel, .header');
+    panels.forEach((p, i) => {
+      p.style.animation = `fadeInUp 0.6s ease forwards`;
+      p.style.animationDelay = (i * 0.1) + 's';
+      p.style.opacity = '0';
+    });
+    
+    // 重置初始消息的动画
+    setTimeout(() => {
+      document.querySelectorAll('.msg').forEach(msg => {
+        msg.style.animation = 'msgIn 0.4s ease forwards';
+      });
+    }, 800);
+  }, 100);
+});
