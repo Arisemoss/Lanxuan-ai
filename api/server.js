@@ -43,9 +43,9 @@ app.use(express.json({ limit: '10mb' }));
 // 静态文件服务
 app.use(express.static(path.join(__dirname, '../public')));
 
-// API路由
-app.use('/api/chat', chatLimiter, require('./chat'));
-app.use('/api/data', dataLimiter, require('./data'));
+// API路由（路由模块位于 server/ 目录，避免被 Vercel 识别为独立函数）
+app.use('/api/chat', chatLimiter, require('../server/chat'));
+app.use('/api/data', dataLimiter, require('../server/data'));
 
 // 健康检查
 app.get('/api/health', (req, res) => {
