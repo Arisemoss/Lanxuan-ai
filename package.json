@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node api/server.js",
     "start": "node api/server.js",
-    "build": "echo \"Static files already in public/\""
+    "build": "echo 'Build skipped — static files ready'"
   },
   "dependencies": {
     "express": "4.18.2",
@@ -15,6 +15,6 @@
     "express-rate-limit": "7.1.5"
   },
   "engines": {
-    "node": "24.x"
+    "node": ">=18"
   }
 }
