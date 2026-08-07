@@ -379,28 +379,38 @@ function getStatusTag() {
   // 根据当前状态生成标签
   const moods = ['正常', '开心', '兴奋', '不屑', '困倦', '疑惑'];
   const mood = moods[Math.floor(Math.random() * moods.length)];
-  const likeChange = Math.floor(Math.random() * 3) - 1; // -1, 0, 或 1
+  let likeChange = Math.floor(Math.random() * 3) - 1; // -1, 0, 或 1
   const trustChange = Math.floor(Math.random() * 3) - 1; // -1, 0, 或 1
-  
+
+  // 高信任度时好感度变化额外 +1（上限 +2）
+  if (S.trust >= 70) {
+    likeChange = Math.min(2, likeChange + 1);
+  }
+
   return `<情绪(${mood})><好感变化:${likeChange >= 0 ? '+' : ''}${likeChange}><信任变化:${trustChange >= 0 ? '+' : ''}${trustChange}>`;
 }
 
 function generateFallbackReply() {
   const fallbacks = [
-    '哦↗<情绪(正常)><好感变化:0><信任变化:0>',
-    '嗯...<情绪(正常)><好感变化:0><信任变化:0>',
-    '行吧<情绪(正常)><好感变化:0><信任变化:0>',
-    '切<情绪(不屑)><好感变化:-1><信任变化:0>',
-    '你说啥？<情绪(疑惑)><好感变化:0><信任变化:0>',
-    '别吵，困了。<情绪(困倦)><好感变化:-1><信任变化:0>',
-    '就这？<情绪(不屑)><好感变化:0><信任变化:0>',
-    '（打哈欠）<情绪(困倦)><好感变化:0><信任变化:0>',
-    '那又怎样？<情绪(不屑)><好感变化:0><信任变化:0>',
-    '随便你。<情绪(正常)><好感变化:0><信任变化:0>',
-    '哦，这样啊。<情绪(正常)><好感变化:0><信任变化:0>',
-    '行，知道了。<情绪(正常)><好感变化:+1><信任变化:0>'
+    { text: '哦↗', mood: '正常', like: 0 },
+    { text: '嗯...', mood: '正常', like: 0 },
+    { text: '行吧', mood: '正常', like: 0 },
+    { text: '切', mood: '不屑', like: -1 },
+    { text: '你说啥？', mood: '疑惑', like: 0 },
+    { text: '别吵，困了。', mood: '困倦', like: -1 },
+    { text: '就这？', mood: '不屑', like: 0 },
+    { text: '（打哈欠）', mood: '困倦', like: 0 },
+    { text: '那又怎样？', mood: '不屑', like: 0 },
+    { text: '随便你。', mood: '正常', like: 0 },
+    { text: '哦，这样啊。', mood: '正常', like: 0 },
+    { text: '行，知道了。', mood: '正常', like: 1 }
   ];
-  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+  const fb = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+  let likeChange = fb.like;
+  if (S.trust >= 70) {
+    likeChange = Math.min(2, likeChange + 1);
+  }
+  return `${fb.text}<情绪(${fb.mood})><好感变化:${likeChange >= 0 ? '+' : ''}${likeChange}><信任变化:0>`;
 }
 
 // ═══ 发送消息 ═══
@@ -586,7 +596,8 @@ function initGame() {
   };
   
   G.active = true;
-  
+  G.prevHand = [];
+
   document.getElementById('gameLog').innerHTML = '';
   addLog('══ 对局开始 ══', 'log-turn');
   addLog('你使用：' + G.player.hero.name + '（' + G.player.hero.title + '）', 'log-skill');
@@ -632,11 +643,12 @@ function renderGame() {
   const hand = document.getElementById('playerHand');
   hand.innerHTML = '';
   const isPlayerTurn = G.active && G.turn === 0;
-  
+  const prevHand = G.prevHand || [];
+
   G.player.hand.forEach((c, i) => {
     const d = document.createElement('div');
     d.className = 'card ' + c.type + (isPlayerTurn ? '' : ' disabled');
-    
+
     // 技能提示
     let tip = c.tip;
     if (G.player.hero?.id === 'guanyu' && c.color === 'red' && c.type === 'shan') {
@@ -648,14 +660,21 @@ function renderGame() {
     if (G.player.hero?.id === 'zhaoyun' && c.type === 'shan') {
       tip = c.tip + ' | 【龙胆】可当【杀】';
     }
-    
+
     d.setAttribute('data-tip', tip + (c.color === 'red' ? ' [红]' : ' [黑]'));
     d.innerHTML = '<div class="card-name">' + c.name + '</div><div class="card-type-label">' + (['sha', 'shan', 'tao'].includes(c.type) ? '基本' : '锦囊') + '</div>';
-    d.style.animationDelay = (i * .04) + 's';
-    d.style.animation = 'cardDeal .3s ease forwards';
+
+    // 仅新加入的手牌播放发牌动画
+    if (!prevHand.includes(c)) {
+      d.style.animationDelay = (i * .04) + 's';
+      d.style.animation = 'cardDeal .3s ease forwards';
+    }
+
     d.onclick = () => playCard(i);
     hand.appendChild(d);
   });
+
+  G.prevHand = G.player.hand.slice();
   
   // 回合状态
   document.getElementById('aiZone').className = 'gb-zone gb-ai' + (G.active && G.turn === 1 ? ' active-turn' : '');
@@ -740,14 +759,18 @@ function endGame(reason) {
   
   if (reason === 'win') {
     addMsg('a', '（瘫在椅子上）行...你赢了...下次再来。');
-    S.like = Math.min(100, S.like + 2);
-    addLog('你赢了！好感度 +2', 'log-heal');
-    showOverlay('你赢了', '兰轩不服气地哼了一声，但嘴角带笑。<br>好感度 +2');
+    let likeGain = 2;
+    if (S.trust >= 70) likeGain += 1;
+    S.like = Math.min(100, S.like + likeGain);
+    addLog('你赢了！好感度 +' + likeGain, 'log-heal');
+    showOverlay('你赢了', '兰轩不服气地哼了一声，但嘴角带笑。<br>好感度 +' + likeGain);
   } else if (reason === 'lose') {
     addMsg('a', '（得意地靠在椅背上）就这？再来一局？');
-    S.like = Math.min(100, S.like + 1);
-    addLog('兰轩赢了，好感度 +1', 'log-turn');
-    showOverlay('兰轩赢了', '他得意洋洋地看着你。<br>好感度 +1');
+    let likeGain = 1;
+    if (S.trust >= 70) likeGain += 1;
+    S.like = Math.min(100, S.like + likeGain);
+    addLog('兰轩赢了，好感度 +' + likeGain, 'log-turn');
+    showOverlay('兰轩赢了', '他得意洋洋地看着你。<br>好感度 +' + likeGain);
   } else if (reason === 'surrender') {
     addMsg('a', '（挑眉）哦↗？这就投了？');
     addLog('你投降了', 'log-dmg');
@@ -932,15 +955,16 @@ function useSkill() {
       break;
     }
     case 'huangyueying': {
-      const wzIdx = G.player.hand.findIndex(c => c.type === 'wzsy');
-      if (wzIdx < 0) { addLog('【奇才】需要一张锦囊牌', ''); return; }
-      G.player.hand.splice(wzIdx, 1);
-      const extra = drawFromDeck(2).map(assignColor);
-      G.player.hand.push(...extra);
+      const jinnangTypes = ['wzsy', 'ghcq', 'nmrr', 'wjqf'];
+      const idx = G.player.hand.findIndex(c => jinnangTypes.includes(c.type));
+      if (idx < 0) { addLog('【奇才】需要一张锦囊牌', ''); return; }
+      const discarded = G.player.hand.splice(idx, 1)[0];
+      const drawn = drawFromDeck(2).map(assignColor);
+      G.player.hand.push(...drawn);
       G.player.skillUsed = true;
-      addLog('【集智】黄月英使用锦囊，额外摸一张牌', 'log-skill');
+      addLog('【奇才】黄月英弃置【' + discarded.name + '】，视为使用【无中生有】摸了2张牌', 'log-skill');
       triggerJiZhi(G.player);
-      addLog('摸到: ' + extra.map(c => c.name).join(', '), 'log-card');
+      addLog('摸到: ' + drawn.map(c => c.name).join(', '), 'log-card');
       break;
     }
     case 'lvbu': {
@@ -1380,6 +1404,61 @@ document.getElementById('overlay')?.addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeOverlay();
 });
 
+// ═══ 移动端侧边栏 ═══
+function toggleMobileSidebar(side) {
+  const left = document.querySelector('.sidebar-left');
+  const right = document.querySelector('.sidebar-right');
+  const backdrop = document.getElementById('mobileSidebarBackdrop');
+  const statusBtn = document.getElementById('mobileStatusBtn');
+  const logBtn = document.getElementById('mobileLogBtn');
+
+  const isLeft = side === 'left';
+  const target = isLeft ? left : right;
+  const other = isLeft ? right : left;
+  const btn = isLeft ? statusBtn : logBtn;
+  const otherBtn = isLeft ? logBtn : statusBtn;
+
+  const wasOpen = target.classList.contains('mobile-open');
+
+  // 关闭另一侧
+  other.classList.remove('mobile-open');
+  otherBtn?.classList.remove('active');
+
+  if (wasOpen) {
+    target.classList.remove('mobile-open');
+    btn?.classList.remove('active');
+    backdrop?.classList.remove('show');
+  } else {
+    target.classList.add('mobile-open');
+    btn?.classList.add('active');
+    backdrop?.classList.add('show');
+  }
+}
+
+function closeMobileSidebars() {
+  document.querySelector('.sidebar-left')?.classList.remove('mobile-open');
+  document.querySelector('.sidebar-right')?.classList.remove('mobile-open');
+  document.getElementById('mobileSidebarBackdrop')?.classList.remove('show');
+  document.getElementById('mobileStatusBtn')?.classList.remove('active');
+  document.getElementById('mobileLogBtn')?.classList.remove('active');
+}
+
+// 点击非侧边栏区域关闭（backdrop 已处理，此处额外兜底）
+document.addEventListener('click', (e) => {
+  const left = document.querySelector('.sidebar-left');
+  const right = document.querySelector('.sidebar-right');
+  const statusBtn = document.getElementById('mobileStatusBtn');
+  const logBtn = document.getElementById('mobileLogBtn');
+  if (!left || !right) return;
+  if (left.classList.contains('mobile-open') || right.classList.contains('mobile-open')) {
+    const clickedInside = left.contains(e.target) || right.contains(e.target);
+    const clickedBtn = statusBtn?.contains(e.target) || logBtn?.contains(e.target);
+    if (!clickedInside && !clickedBtn) {
+      closeMobileSidebars();
+    }
+  }
+});
+
 // ═══ 暴露全局函数 ═══
 window.sendMsg = sendMsg;
 window.showHeroSelect = showHeroSelect;
@@ -1389,7 +1468,6 @@ window.playCard = playCard;
 window.endTurn = endTurn;
 window.endGame = endGame;
 window.closeOverlay = closeOverlay;
-
 // ═══ 鼠标跟随光晕效果 ═══
 document.addEventListener('DOMContentLoaded', () => {
   const cursorGlow = document.getElementById('cursorGlow');
@@ -1439,3 +1517,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 800);
   }, 100);
 });
+
+window.toggleMobileSidebar = toggleMobileSidebar;
+window.closeMobileSidebars = closeMobileSidebars;

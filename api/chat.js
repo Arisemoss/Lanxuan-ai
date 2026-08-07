@@ -26,8 +26,18 @@ router.post('/', async (req, res) => {
   try {
     const { messages, gameState } = req.body;
 
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: '无效的请求参数' });
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: '无效或过长消息' });
+    }
+
+    const lastUserMessage = [...messages].reverse().find(m => m && m.role === 'user');
+    if (
+      !lastUserMessage ||
+      typeof lastUserMessage.content !== 'string' ||
+      lastUserMessage.content.length === 0 ||
+      lastUserMessage.content.length > 500
+    ) {
+      return res.status(400).json({ error: '无效或过长消息' });
     }
 
     // 如果API密钥未配置，返回降级响应
