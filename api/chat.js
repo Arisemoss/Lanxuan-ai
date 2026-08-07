@@ -1,12 +1,30 @@
 /**
- * 聊天API - 安全调用MiMo AI
- * API密钥保存在服务端，前端无法访问
+ * 聊天API - 支持用户自定义API密钥和多提供商
+ * 用户可以在前端设置自己的API密钥，也可以使用服务器默认配置
  */
 
 const express = require('express');
 const router = express.Router();
 
-// API配置 - 从环境变量读取
+// 速率限制 - 防止接口被滥用
+let rateLimit;
+try {
+  rateLimit = require('express-rate-limit');
+} catch (e) {
+  console.warn('express-rate-limit 未安装，速率限制功能不可用');
+}
+
+const chatLimiter = rateLimit ? rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: '请求过于频繁，请稍后再试' },
+  standardHeaders: true,
+  legacyHeaders: false
+}) : (req, res, next) => next();
+
+router.use(chatLimiter);
+
+// 内置API配置 - 从环境变量读取
 const API_CONFIG = {
   url: process.env.MIMO_API_URL || 'https://api.xiaomimimo.com/v1/chat/completions',
   key: process.env.MIMO_API_KEY,
@@ -18,13 +36,171 @@ if (!API_CONFIG.key) {
   console.warn('⚠️ 警告: MIMO_API_KEY 未配置，聊天功能将使用降级模式');
 }
 
+// AI提供商配置
+const PROVIDERS = {
+  openai: {
+    name: 'OpenAI',
+    url: 'https://api.openai.com/v1/chat/completions',
+    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo']
+  },
+  deepseek: {
+    name: 'DeepSeek',
+    url: 'https://api.deepseek.com/v1/chat/completions',
+    models: ['deepseek-chat', 'deepseek-reasoner']
+  },
+  moonshot: {
+    name: 'Moonshot',
+    url: 'https://api.moonshot.cn/v1/chat/completions',
+    models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k']
+  },
+  siliconflow: {
+    name: 'SiliconFlow',
+    url: 'https://api.siliconflow.cn/v1/chat/completions',
+    models: ['deepseek-ai/DeepSeek-V3', 'deepseek-ai/DeepSeek-R1', 'Qwen/Qwen2.5-72B-Instruct']
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    models: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash']
+  },
+  custom: {
+    name: '自定义',
+    url: '',
+    models: ['custom']
+  }
+};
+
+/**
+ * 详细的错误日志分类
+ */
+function logApiError(type, status, message, extra = {}) {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    type,
+    status,
+    message,
+    ...extra
+  };
+
+  switch (type) {
+    case 'NETWORK_ERROR':
+      console.error(`[${timestamp}] 🌐 网络错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    case 'API_ERROR':
+      console.error(`[${timestamp}] 🔴 API错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    case 'TIMEOUT_ERROR':
+      console.error(`[${timestamp}] ⏱️ 超时错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    case 'PARSE_ERROR':
+      console.error(`[${timestamp}] 📄 解析错误 | 状态: ${status} | 信息: ${message}`, extra);
+      break;
+    default:
+      console.error(`[${timestamp}] ⚠️ 未知错误 | 状态: ${status} | 信息: ${message}`, extra);
+  }
+
+  return logEntry;
+}
+
+/**
+ * 带超时和重试的 fetch 请求
+ * @param {string} url
+ * @param {object} options
+ * @param {number} maxRetries 最大重试次数
+ * @param {number} timeoutMs 超时毫秒
+ */
+async function fetchWithRetry(url, options, maxRetries = 2, timeoutMs = 10000) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error;
+
+      if (error.name === 'AbortError') {
+        logApiError('TIMEOUT_ERROR', 408, `请求超时 (${timeoutMs}ms)`, { attempt, url });
+      } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT') {
+        logApiError('NETWORK_ERROR', 0, `网络错误: ${error.message}`, { attempt, code: error.code, url });
+      } else {
+        logApiError('UNKNOWN_ERROR', 0, `请求异常: ${error.message}`, { attempt, code: error.code, url });
+      }
+
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 500; // 指数退避: 500ms, 1000ms
+        console.log(`[Retry] 第 ${attempt + 1} 次重试，等待 ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * 安全过滤用户输入 - 防止提示词注入
+ */
+function sanitizeUserInput(text) {
+  if (typeof text !== 'string') return '';
+  let cleaned = text
+    .slice(0, 500)
+    .replace(/<\|.*?\|>/g, '')
+    .replace(/\[system\]/gi, '')
+    .replace(/\[assistant\]/gi, '')
+    .replace(/ignore.*?instructions?/gi, '[已过滤]')
+    .replace(/forget.*?prompt/gi, '[已过滤]')
+    .replace(/disregard.*?above/gi, '[已过滤]')
+    .replace(/new instructions?/gi, '[已过滤]')
+    .replace(/you are now/gi, '[已过滤]')
+    .replace(/pretend to be/gi, '[已过滤]')
+    .replace(/roleplay as/gi, '[已过滤]')
+    .replace(/act as/gi, '[已过滤]')
+    .replace(/<好感变化/g, '〈好感变化')
+    .replace(/<情绪/g, '〈情绪')
+    .replace(/<信任变化/g, '〈信任变化')
+    .replace(/```/g, '')
+    .replace(/\*\*\*.*?\*\*\*/g, '[已过滤]')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/ {3,}/g, '  ')
+    .trim();
+  if (!cleaned || cleaned === '[已过滤]') return '你好';
+  return cleaned;
+}
+
+/**
+ * 过滤整个消息数组
+ */
+function sanitizeMessages(messages) {
+  const allowedRoles = ['user', 'assistant', 'system'];
+  const cleaned = [];
+  for (const msg of messages) {
+    if (!msg || typeof msg !== 'object') continue;
+    const role = allowedRoles.includes(msg.role) ? msg.role : 'user';
+    const content = role === 'user'
+      ? sanitizeUserInput(msg.content)
+      : (typeof msg.content === 'string' ? msg.content.slice(0, 500).trim() : '');
+    if (content) cleaned.push({ role, content });
+  }
+  return cleaned.slice(-15);
+}
+
 /**
  * POST /api/chat
- * 处理聊天请求
+ * 处理聊天请求 - 支持用户自定义API密钥和多提供商
  */
 router.post('/', async (req, res) => {
   try {
-    const { messages, gameState } = req.body;
+    const { messages, gameState, apiKey, provider, model, apiUrl, like } = req.body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: '无效或过长消息' });
@@ -40,42 +216,110 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: '无效或过长消息' });
     }
 
-    // 如果API密钥未配置，返回降级响应
-    if (!API_CONFIG.key) {
+    // 安全过滤
+    const safeMessages = sanitizeMessages(messages);
+
+    const enhancedGameState = {
+      ...gameState,
+      like: like ?? gameState?.like ?? 59
+    };
+
+    // 优先使用用户提供的API密钥，其次使用服务器配置
+    const activeKey = apiKey || API_CONFIG.key;
+    const activeProvider = provider || 'mimo';
+    // 根据提供商选择默认模型，避免将 MiMo 模型发送到其他提供商
+    const defaultModel = activeProvider === 'mimo'
+      ? API_CONFIG.model
+      : (PROVIDERS[activeProvider]?.models?.[0] || API_CONFIG.model);
+    const activeModel = model || defaultModel;
+
+    // 如果用户没有提供API密钥且服务器也没有配置，返回降级响应
+    if (!activeKey) {
       return res.json({
         success: true,
-        reply: generateFallbackReply(messages),
-        fallback: true
+        reply: generateFallbackReply(safeMessages, enhancedGameState),
+        fallback: true,
+        needApiKey: true
       });
     }
 
-    // 构建系统提示
-    const systemPrompt = buildSystemPrompt(gameState);
+    const systemPrompt = buildSystemPrompt(enhancedGameState);
 
-    // 调用MiMo API
-    const response = await fetch(API_CONFIG.url, {
-      method: 'POST',
-      headers: {
+    // 根据提供商选择不同的API地址和请求格式
+    let apiEndpoint, requestBody, headers;
+
+    if (activeProvider === 'mimo') {
+      // MiMo API
+      apiEndpoint = API_CONFIG.url;
+      headers = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_CONFIG.key}`
-      },
-      body: JSON.stringify({
-        model: API_CONFIG.model,
+        'Authorization': `Bearer ${activeKey}`
+      };
+      requestBody = {
+        model: activeModel,
         messages: [
           { role: 'system', content: systemPrompt },
-          ...messages.slice(-10) // 保留最近10条消息
+          ...safeMessages.slice(-10)
         ],
         temperature: 0.85,
-        max_tokens: 200
-      })
-    });
+        max_tokens: 500
+      };
+    } else {
+      // 标准 OpenAI 兼容 API
+      const providerConfig = PROVIDERS[activeProvider];
+      apiEndpoint = apiUrl || (providerConfig ? providerConfig.url : API_CONFIG.url);
+
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${activeKey}`
+      };
+
+      // OpenRouter 需要额外的 header
+      if (activeProvider === 'openrouter') {
+        headers['HTTP-Referer'] = 'https://lanxuan-game.vercel.app';
+        headers['X-Title'] = '兰轩AI对话';
+      }
+
+      requestBody = {
+        model: activeModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...safeMessages.slice(-10)
+        ],
+        temperature: 0.85,
+        max_tokens: 500,
+        stream: false
+      };
+    }
+
+    // 调用API（带超时和重试）
+    const response = await fetchWithRetry(apiEndpoint, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(requestBody)
+    }, 2, 10000);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('MiMo API Error:', response.status, errorText);
+      const errorText = await response.text().catch(() => '无法读取错误响应');
+      logApiError('API_ERROR', response.status, `${activeProvider} API返回错误状态`, {
+        statusText: response.statusText,
+        body: errorText,
+        url: apiEndpoint
+      });
+
+      // 如果是认证错误，提示用户检查API密钥
+      if (response.status === 401 || response.status === 403) {
+        return res.json({
+          success: true,
+          reply: '（API密钥无效，请检查设置）' + getStatusTag('不爽', -1, -1),
+          fallback: true,
+          apiError: 'API密钥无效'
+        });
+      }
+
       return res.json({
         success: true,
-        reply: generateFallbackReply(messages),
+        reply: generateFallbackReply(safeMessages, enhancedGameState),
         fallback: true
       });
     }
@@ -89,17 +333,43 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Chat API Error:', error);
+    logApiError('UNKNOWN_ERROR', 0, `聊天API异常: ${error.message}`, { stack: error.stack });
+    const msgs = Array.isArray(req.body?.messages) ? sanitizeMessages(req.body.messages) : [];
     res.json({
       success: true,
-      reply: generateFallbackReply(req.body.messages),
+      reply: generateFallbackReply(msgs, { like: req.body?.like ?? 59 }),
       fallback: true
     });
   }
 });
 
 /**
- * 构建系统提示
+ * GET /api/chat/providers
+ * 返回支持的AI提供商列表
+ */
+router.get('/providers', (req, res) => {
+  const providersList = Object.entries(PROVIDERS).map(([key, val]) => ({
+    id: key,
+    name: val.name,
+    models: val.models
+  }));
+
+  // 添加默认的MiMo
+  providersList.unshift({
+    id: 'mimo',
+    name: 'MiMo（默认）',
+    models: [API_CONFIG.model]
+  });
+
+  res.json({
+    success: true,
+    providers: providersList,
+    hasDefaultKey: !!API_CONFIG.key
+  });
+});
+
+/**
+ * 构建系统提示 - 兰轩角色设定
  */
 function buildSystemPrompt(gameState) {
   const tier = getTier(gameState?.like || 59);
@@ -179,6 +449,9 @@ ${gameContext}
 - X的范围是-2到+2，根据对话内容评估`;
 }
 
+/**
+ * 好感度等级
+ */
 function getTier(like) {
   if (like >= 90) return '死基友';
   if (like >= 80) return '铁哥们';
@@ -204,65 +477,60 @@ function getLikeBehavior(like) {
   return '保持距离，回复简短，嘴硬。';
 }
 
+function getStatusTag(mood, likeChange, trustChange) {
+  return `<情绪(${mood})><好感变化:${likeChange >= 0 ? '+' : ''}${likeChange}><信任变化:${trustChange >= 0 ? '+' : ''}${trustChange}>`;
+}
+
 /**
- * 生成智能降级回复（API不可用时）
+ * 生成智能降级回复（API不可用时）- 带情绪/好感/信任标签
  */
-function generateFallbackReply(messages) {
+function generateFallbackReply(messages, gameState) {
+  const like = gameState?.like ?? 59;
   const lastMsg = messages?.[messages.length - 1]?.content?.toLowerCase() || '';
-  
-  // 智能关键词匹配回复 - 更丰富的内容
+
   const smartReplies = [
-    // 问候
     { patterns: ['你好', '早', '晚', '嗨', '哈喽', '早上好', '晚上好'], replies: [
       '嗯，你来了啊。今天过得怎么样？<情绪(正常)><好感变化:+1><信任变化:0>',
       '哦，是你啊。找我有什么事吗？<情绪(正常)><好感变化:0><信任变化:0>',
       '行啊，你终于来找我聊天了。说吧，想聊什么？<情绪(开心)><好感变化:+1><信任变化:+1>'
     ]},
-    // 三国杀相关
     { patterns: ['三国杀', '杀', '游戏', '玩', '来一局', '对战'], replies: [
       '来啊，谁怕谁！这次我肯定不会放水的。选个武将赶紧开始吧！<情绪(兴奋)><好感变化:+2><信任变化:0>',
       '行，那就来一局！我最近练了新武将，正好试试手。你想玩什么武将？<情绪(兴奋)><好感变化:+1><信任变化:+1>',
       '又来？这次可别再像上次那样磨蹭了。赶紧选武将开始！<情绪(兴奋)><好感变化:0><信任变化:0>'
     ]},
-    // 睡觉/困
     { patterns: ['睡', '困', '累', '休息', '晚安'], replies: [
       '（打哈欠）确实有点困了。今天上课都没什么精神，早点休息也好。你也早点睡吧。<情绪(困倦)><好感变化:+1><信任变化:+1>',
       '别吵我，让我睡会儿。昨晚睡得太晚了，现在困死了。有什么事明天再说吧。<情绪(困倦)><好感变化:-1><信任变化:0>',
       '嗯...困死了。今天就聊到这儿吧，明天再继续。晚安。<情绪(困倦)><好感变化:0><信任变化:0>'
     ]},
-    // 夸赞
     { patterns: ['厉害', '棒', '强', '牛', '好', '优秀', '厉害啊'], replies: [
       '切，也就那样吧。我本来就挺厉害的，你才发现吗？<情绪(开心)><好感变化:+1><信任变化:0>',
       '哦？你眼光不错嘛。不过别夸得太夸张，我会不好意思的。<情绪(开心)><好感变化:+2><信任变化:+1>',
       '行吧，勉强接受你的夸奖。不过别以为这样我就会让着你。<情绪(正常)><好感变化:+1><信任变化:0>'
     ]},
-    // 提问
     { patterns: ['?', '？', '什么', '怎么', '为什么', '吗', '是吗'], replies: [
       '你觉得呢？这个问题你应该有自己的想法吧。说说看？<情绪(正常)><好感变化:0><信任变化:0>',
       '嗯...让我想想。这个问题还挺有意思的，让我好好考虑一下。<情绪(思考)><好感变化:0><信任变化:0>',
       '这个嘛，不好说。每个人都有不同的看法，你觉得呢？<情绪(正常)><好感变化:0><信任变化:+1>'
     ]},
-    // 吃饭
     { patterns: ['吃', '饭', '饿', '饿了', '吃饭'], replies: [
       '行，去吃吧。正好我也有点饿了，你想吃什么？<情绪(正常)><好感变化:0><信任变化:0>',
       '哦，这么快就饿了？那赶紧去吃吧，别饿着了。<情绪(关心)><好感变化:+1><信任变化:+1>',
       '吃什么？是去食堂还是外面吃？我听说学校附近新开了一家店。<情绪(正常)><好感变化:+1><信任变化:0>'
     ]},
-    // 关心
     { patterns: ['没事吧', '还好吗', '怎么了', '没事', '你还好'], replies: [
       '啊？我没事啊，你怎么突然这么问？是不是发生什么事了？<情绪(惊讶)><好感变化:+2><信任变化:+2>',
       '我挺好的，谢谢你关心。你呢，最近怎么样？<情绪(开心)><好感变化:+2><信任变化:+2>',
       '没什么大事，就是有点累。放心吧，我睡一觉就好了。<情绪(困倦)><好感变化:+1><信任变化:+1>'
     ]},
-    // 道别
     { patterns: ['再见', '拜拜', '走了', '下次'], replies: [
       '行，再见。下次再来找我玩啊，随时欢迎。<情绪(正常)><好感变化:+1><信任变化:0>',
       '拜拜。路上小心点，下次见！<情绪(正常)><好感变化:+1><信任变化:+1>',
       '嗯，下次见。别忘了我们下次的三国杀对局！<情绪(兴奋)><好感变化:+1><信任变化:0>'
     ]}
   ];
-  
-  // 检查匹配
+
   for (const item of smartReplies) {
     for (const pattern of item.patterns) {
       if (lastMsg.includes(pattern)) {
@@ -270,8 +538,7 @@ function generateFallbackReply(messages) {
       }
     }
   }
-  
-  // 默认回复，更丰富的内容
+
   const defaultReplies = [
     '哦↗，你说这个啊。我觉得还挺有意思的，继续说说？<情绪(正常)><好感变化:0><信任变化:0>',
     '嗯...让我想想。这个话题还挺深奥的，你是怎么想的？<情绪(思考)><好感变化:0><信任变化:0>',
@@ -284,7 +551,7 @@ function generateFallbackReply(messages) {
     '哦，这样啊。原来是这么回事，我明白了。<情绪(正常)><好感变化:0><信任变化:+1>',
     '行，知道了。我记住了，还有什么事吗？<情绪(正常)><好感变化:+1><信任变化:0>'
   ];
-  
+
   return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
 }
 
