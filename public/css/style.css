@@ -1961,3 +1961,10 @@ header::after {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+/* ═══ 修复：AI设置弹窗始终置顶（防止被新手引导弹窗遮挡导致无法点击）═══ */
+#settingsOverlay {
+  z-index: 210;
+}
+#settingsOverlay.show {
+  z-index: 210;
+}

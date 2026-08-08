@@ -213,14 +213,21 @@ function saveApiSettings() {
 }
 
 function showSettings() {
-  // 加载当前设置到界面
-  document.getElementById('providerSelect').value = S.apiSettings.provider;
-  document.getElementById('apiKeyInput').value = S.apiSettings.apiKey;
-  document.getElementById('modelSelect').value = S.apiSettings.model;
-  document.getElementById('customApiUrl').value = S.apiSettings.apiUrl;
-  onProviderChange();
-  updateApiStatus();
+  // 修复：先显示弹窗（即使后续逻辑异常也能打开），并强制关闭引导弹窗防止层级遮挡导致无法点击
+  const ob = document.getElementById('onboardingOverlay');
+  if (ob) ob.classList.remove('show');
   document.getElementById('settingsOverlay').classList.add('show');
+  // 加载当前设置到界面
+  try {
+    document.getElementById('providerSelect').value = S.apiSettings.provider;
+    document.getElementById('apiKeyInput').value = S.apiSettings.apiKey;
+    document.getElementById('modelSelect').value = S.apiSettings.model;
+    document.getElementById('customApiUrl').value = S.apiSettings.apiUrl;
+    onProviderChange();
+    updateApiStatus();
+  } catch (e) {
+    console.warn('加载设置到界面失败:', e);
+  }
 }
 
 function closeSettings() {
@@ -288,6 +295,9 @@ async function testApiConnection() {
     return;
   }
   
+  // 修复：添加15秒超时，避免网络异常导致测试连接长时间挂起（卡死）
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -299,7 +309,8 @@ async function testApiConnection() {
         model,
         apiUrl,
         gameState: { like: 59, trust: 50, mood: '正常', inGame: false }
-      })
+      }),
+      signal: controller.signal
     });
     
     const data = await response.json();
@@ -315,7 +326,9 @@ async function testApiConnection() {
     }
   } catch (e) {
     statusDot.className = 'api-status-dot error';
-    statusText.textContent = '连接失败: ' + e.message;
+    statusText.textContent = e.name === 'AbortError' ? '连接超时，请检查网络' : '连接失败: ' + e.message;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
