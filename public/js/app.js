@@ -1030,6 +1030,33 @@ function endGame(reason) {
   renderProfile();
   renderGame();
   saveUserData();
+  
+  // 保存对局历史
+  if (reason === 'win' || reason === 'lose') {
+    saveGameHistory(reason);
+  }
+}
+
+// 保存对局历史到后端
+async function saveGameHistory(result) {
+  try {
+    await fetch('/api/game/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: S.userId,
+        gameRecord: {
+          playerHero: G.player.hero?.name || '未知',
+          aiHero: G.ai.hero?.name || '未知',
+          result: result,
+          rounds: G.round,
+          duration: 0
+        }
+      })
+    });
+  } catch (e) {
+    console.warn('保存对局历史失败');
+  }
 }
 
 // ═══ 摸牌 ═══
@@ -1058,17 +1085,21 @@ function triggerYaJiao(who) {
 function aiDefendSha(needShan) {
   let shanUsed = 0;
   for (let s = 0; s < needShan; s++) {
+    // 吕布无双需要两张闪，逐张检查
     const si = G.ai.hand.findIndex(c => c.type === 'shan');
     const shaAsShan = G.ai.hero?.id === 'zhaoyun' ? G.ai.hand.findIndex(c => c.type === 'sha') : -1;
     if (si >= 0) {
-      G.ai.hand.splice(si, 1);
+      const card = G.ai.hand.splice(si, 1)[0];
       shanUsed++;
+      addLog('兰轩打出【闪】(' + (shanUsed) + '/' + needShan + ')', 'log-action');
       triggerYaJiao(G.ai);
     } else if (shaAsShan >= 0) {
       G.ai.hand.splice(shaAsShan, 1);
       shanUsed++;
-      addLog('【龙胆】兰轩将【杀】当作【闪】打出', 'log-skill');
+      addLog('【龙胆】兰轩将【杀】当作【闪】打出(' + shanUsed + '/' + needShan + ')', 'log-skill');
       triggerYaJiao(G.ai);
+    } else {
+      break; // 没有闪了，停止
     }
   }
   return shanUsed;
@@ -1082,12 +1113,15 @@ function playerDefendSha(needShan) {
     if (si >= 0) {
       G.player.hand.splice(si, 1);
       shanUsed++;
+      addLog('你打出【闪】(' + shanUsed + '/' + needShan + ')', 'log-action');
       triggerYaJiao(G.player);
     } else if (shaAsShan >= 0) {
       G.player.hand.splice(shaAsShan, 1);
       shanUsed++;
-      addLog('【龙胆】你将【杀】当作【闪】打出', 'log-skill');
+      addLog('【龙胆】你将【杀】当作【闪】打出(' + shanUsed + '/' + needShan + ')', 'log-skill');
       triggerYaJiao(G.player);
+    } else {
+      break;
     }
   }
   return shanUsed;
@@ -1403,6 +1437,15 @@ function playCard(idx) {
 function endTurn() {
   if (!G.active || G.turn !== 0) return;
   
+  // 玩家弃牌阶段：手牌超过体力值时自动弃牌
+  while (G.player.hand.length > G.player.hp) {
+    // 优先弃杀，保留闪和桃
+    const shaIdx = G.player.hand.findIndex(c => c.type === 'sha');
+    const discardIdx = shaIdx >= 0 ? shaIdx : 0;
+    const discarded = G.player.hand.splice(discardIdx, 1)[0];
+    addLog('你弃置了【' + discarded.name + '】（手牌超限）', 'log-action');
+  }
+  
   G.player.hasDrawn = false;
   G.player.shaUsed = false;
   G.player.skillState = null;
@@ -1431,6 +1474,9 @@ function aiTurn() {
   setTimeout(() => {
     // AI智能技能使用
     useAISmartSkills();
+    
+    // 重置AI出牌标记（张飞可以出多张杀）
+    if (G.ai.hero?.id === 'zhangfei') G.ai.shaUsed = false;
     
     // 执行AI出牌策略
     executeSmartAIActions();
@@ -1502,7 +1548,7 @@ function executeSmartAIActions() {
           damage(G.player, 1);
           addLog('你无法抵挡，受到1点伤害！', 'log-dmg');
         }
-        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        triggerJiZhi(G.ai);
         if (checkEnd()) return;
         acted = true;
         actionsCount++;
@@ -1514,7 +1560,7 @@ function executeSmartAIActions() {
           damage(G.player, 1);
           addLog('你无法抵挡，受到1点伤害！', 'log-dmg');
         }
-        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        triggerJiZhi(G.ai);
         if (checkEnd()) return;
         acted = true;
         actionsCount++;
@@ -1527,7 +1573,7 @@ function executeSmartAIActions() {
       const canUseSha = (!G.ai.shaUsed || G.ai.hero?.id === 'zhangfei');
       if (s >= 0 && canUseSha) {
         G.ai.hand.splice(s, 1);
-        G.ai.shaUsed = true;
+        if (G.ai.hero?.id !== 'zhangfei') G.ai.shaUsed = true;
         showPlayedCard(CARDS[0], '兰轩对你使用【杀】！');
         addLog('兰轩对你使用【杀】！', 'log-dmg');
         triggerYaJiao(G.ai);
@@ -1561,16 +1607,18 @@ function executeSmartAIActions() {
       const gh = G.ai.hand.findIndex(c => c.type === 'ghcq');
       if (gh >= 0) {
         G.ai.hand.splice(gh, 1);
-        // 智能选择要拆的牌
+        // 智能选择要拆的牌：优先拆闪和桃（对防守最有价值）
         let targetIdx = 0;
-        const shaIdx = G.player.hand.findIndex(c => c.type === 'sha');
-        if (shaIdx >= 0) targetIdx = shaIdx;
+        const shanIdx = G.player.hand.findIndex(c => c.type === 'shan');
+        const taoIdx = G.player.hand.findIndex(c => c.type === 'tao');
+        if (shanIdx >= 0) targetIdx = shanIdx;
+        else if (taoIdx >= 0) targetIdx = taoIdx;
         
         const rm = G.player.hand.splice(targetIdx, 1)[0];
         showPlayedCard(CARDS[4], '兰轩拆掉了你的【' + rm.name + '】');
         addLog('兰轩使用【过河拆桥】拆掉了你的【' + rm.name + '】', 'log-dmg');
         addMsg('a', '（坏笑）嘿嘿。');
-        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        triggerJiZhi(G.ai);
         acted = true;
         actionsCount++;
       }
@@ -1585,7 +1633,7 @@ function executeSmartAIActions() {
         G.ai.hand.push(...ex);
         showPlayedCard(CARDS[3], '兰轩使用【无中生有】');
         addLog('兰轩使用【无中生有】摸了牌', 'log-card');
-        if (G.ai.hero?.id === 'huangyueying') triggerJiZhi(G.ai);
+        triggerJiZhi(G.ai);
         acted = true;
         actionsCount++;
       }
@@ -1622,6 +1670,15 @@ function executeSmartAIActions() {
 }
 
 function finishAITurn() {
+  // AI弃牌阶段：手牌超过体力值时弃牌
+  while (G.ai.hand.length > G.ai.hp) {
+    // 策略：优先弃杀，保留闪和桃
+    const shaIdx = G.ai.hand.findIndex(c => c.type === 'sha');
+    const discardIdx = shaIdx >= 0 ? shaIdx : 0;
+    const discarded = G.ai.hand.splice(discardIdx, 1)[0];
+    addLog('兰轩弃置了【' + discarded.name + '】', 'log-action');
+  }
+  
   G.ai.hasDrawn = false;
   G.ai.shaUsed = false;
   G.ai.skillState = null;
@@ -1776,3 +1833,29 @@ window.nextOnboardingStep = nextOnboardingStep;
 window.closeOnboarding = closeOnboarding;
 window.toggleMobileSidebar = toggleMobileSidebar;
 window.closeMobileSidebars = closeMobileSidebars;
+
+// ═══ 战绩统计 ═══
+async function loadGameStats() {
+  try {
+    const res = await fetch(`/api/game/stats/${S.userId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.success && data.data) {
+      const stats = data.data;
+      const totalEl = document.getElementById('statTotal');
+      const winRateEl = document.getElementById('statWinRate');
+      const streakEl = document.getElementById('statStreak');
+      if (totalEl) totalEl.textContent = stats.totalGames || 0;
+      if (winRateEl) winRateEl.textContent = stats.totalGames > 0 ? stats.winRate + '%' : '-';
+      if (streakEl) {
+        const s = stats.currentStreak || 0;
+        streakEl.textContent = s > 0 ? s + '连胜' : s < 0 ? Math.abs(s) + '连败' : '0';
+      }
+    }
+  } catch (e) {
+    // 静默失败
+  }
+}
+
+// 在初始化时加载战绩
+setTimeout(loadGameStats, 2000);
