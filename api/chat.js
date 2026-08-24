@@ -6,23 +6,7 @@
 const express = require('express');
 const router = express.Router();
 
-// 速率限制 - 防止接口被滥用
-let rateLimit;
-try {
-  rateLimit = require('express-rate-limit');
-} catch (e) {
-  console.warn('express-rate-limit 未安装，速率限制功能不可用');
-}
-
-const chatLimiter = rateLimit ? rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
-  message: { error: '请求过于频繁，请稍后再试' },
-  standardHeaders: true,
-  legacyHeaders: false
-}) : (req, res, next) => next();
-
-router.use(chatLimiter);
+// 速率限制由 server.js 中间件统一处理，此处不再重复
 
 // 内置API配置 - 从环境变量读取
 const API_CONFIG = {

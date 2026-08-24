@@ -22,4 +22,4 @@ npm-debug.log*
 *.tmp
 
 # 用户数据存储（服务端生成）
-data/data/
+data/

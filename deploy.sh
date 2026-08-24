@@ -1,46 +1,48 @@
 #!/bin/bash
 
 # 兰轩部署脚本
+set -e
 
-echo "🚀 开始部署兰轩-三国杀1v1对战平台..."
+echo "🚀 兰轩 - 三国杀1v1在线对战平台"
+echo "=================================="
+echo ""
 
-# 检查是否安装了git
-if ! command -v git &> /dev/null; then
-    echo "❌ 错误: 需要安装Git才能继续"
-    echo "请访问 https://git-scm.com 下载安装"
+# 检查 Node.js
+if ! command -v node &> /dev/null; then
+    echo "❌ 需要安装 Node.js (>=18)"
+    echo "   下载: https://nodejs.org"
     exit 1
 fi
 
-# 检查是否安装了vercel
-if ! command -v vercel &> /dev/null; then
-    echo "📦 正在安装Vercel CLI..."
-    npm install -g vercel
+NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+if [ "$NODE_VERSION" -lt 18 ]; then
+    echo "❌ Node.js 版本过低 (当前: $(node -v), 需要: >=18)"
+    exit 1
 fi
 
-# 初始化git（如果还没有）
-if [ ! -d .git ]; then
-    echo "📝 初始化Git仓库..."
-    git init
-    git add .
-    git commit -m "feat: 兰轩-三国杀1v1对战平台"
+echo "✅ Node.js $(node -v)"
+
+# 安装依赖
+echo ""
+echo "📦 安装依赖..."
+npm install --production
+
+# 检查环境变量
+if [ ! -f .env ]; then
+    echo ""
+    echo "⚠️  未找到 .env 文件"
+    echo "   已复制 .env.example → .env"
+    echo "   请编辑 .env 填入 MIMO_API_KEY"
+    cp .env.example .env
 fi
 
-echo "🌐 部署到Vercel..."
-echo ""
-echo "请按照提示完成部署："
-echo "1. 登录Vercel（如果没有账号需要先注册）"
-echo "2. 选择你的GitHub仓库"
-echo "3. 点击Deploy"
-echo ""
+# 创建数据目录
+mkdir -p data
 
-# 启动vercel部署
-vercel
-
+# 启动
 echo ""
-echo "✅ 部署完成！"
-echo "你现在可以通过Vercel提供的URL访问你的网站了"
+echo "🎯 启动服务器..."
+echo "   访问: http://localhost:3000"
+echo "   按 Ctrl+C 停止"
 echo ""
-echo "💡 小贴士："
-echo "- 在Vercel后台可以添加自定义域名"
-echo "- 可以配置环境变量来启用更智能的AI对话"
-echo "- 网页已经优化了社交分享，直接分享链接即可"
+node api/server.js
