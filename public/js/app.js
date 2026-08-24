@@ -31,6 +31,19 @@ const PROVIDER_MODELS = {
   custom: ['custom']
 };
 
+// ═══ 音效系统（预留接口）═══
+const SFX = {
+  enabled: true,
+  play(name) {
+    if (!this.enabled) return;
+    // TODO: 替换为真实音效文件
+    // const audio = new Audio(`/sfx/${name}.mp3`);
+    // audio.volume = 0.3;
+    // audio.play().catch(() => {});
+  },
+  toggle() { this.enabled = !this.enabled; return this.enabled; }
+};
+
 // ═══ 卡牌定义 ═══
 const CARDS = [
   { id: 'sha', name: '杀', type: 'sha', tip: '对目标造成1点伤害', count: 30 },
@@ -1001,6 +1014,7 @@ function damage(who, n) {
   const zone = who === G.player ? 'playerZone' : 'aiZone';
   document.getElementById(zone).classList.add('shake', 'dmg-flash');
   setTimeout(() => document.getElementById(zone).classList.remove('shake', 'dmg-flash'), 400);
+  SFX.play('damage');
   renderGame();
 }
 
@@ -1009,6 +1023,7 @@ function heal(who, n) {
   const zone = who === G.player ? 'playerZone' : 'aiZone';
   document.getElementById(zone).classList.add('heal-glow');
   setTimeout(() => document.getElementById(zone).classList.remove('heal-glow'), 500);
+  SFX.play('heal');
   renderGame();
 }
 
@@ -1103,6 +1118,42 @@ function triggerYaJiao(who) {
 }
 
 // ═══ 防御辅助函数 ═══
+// ═══ 卡牌价值评估 ═══
+const CARD_VALUE = { tao: 10, shan: 8, sha: 5, wzsy: 6, ghcq: 4, nmrr: 7, wjqf: 7 };
+
+function getCardValue(card, isLowHp) {
+  let val = CARD_VALUE[card.type] || 3;
+  // 低血量时桃的价值大幅提升
+  if (card.type === 'tao' && isLowHp) val += 10;
+  // 有闪防杀很重要
+  if (card.type === 'shan') val += 2;
+  return val;
+}
+
+/** AI选择弃牌：优先弃价值最低的牌 */
+function aiChooseDiscard() {
+  let bestIdx = 0;
+  let lowestVal = Infinity;
+  const isLowHp = G.ai.hp <= 2;
+  G.ai.hand.forEach((c, i) => {
+    const val = getCardValue(c, isLowHp);
+    if (val < lowestVal) { lowestVal = val; bestIdx = i; }
+  });
+  return bestIdx;
+}
+
+/** 玩家弃牌：同样智能选择价值最低的牌 */
+function playerChooseDiscard() {
+  let bestIdx = 0;
+  let lowestVal = Infinity;
+  const isLowHp = G.player.hp <= 2;
+  G.player.hand.forEach((c, i) => {
+    const val = getCardValue(c, isLowHp);
+    if (val < lowestVal) { lowestVal = val; bestIdx = i; }
+  });
+  return bestIdx;
+}
+
 function aiDefendSha(needShan) {
   let shanUsed = 0;
   for (let s = 0; s < needShan; s++) {
@@ -1458,11 +1509,9 @@ function playCard(idx) {
 function endTurn() {
   if (!G.active || G.turn !== 0) return;
   
-  // 玩家弃牌阶段：手牌超过体力值时自动弃牌
+  // 玩家弃牌阶段：手牌超过体力值时智能弃牌
   while (G.player.hand.length > G.player.hp) {
-    // 优先弃杀，保留闪和桃
-    const shaIdx = G.player.hand.findIndex(c => c.type === 'sha');
-    const discardIdx = shaIdx >= 0 ? shaIdx : 0;
+    const discardIdx = playerChooseDiscard();
     const discarded = G.player.hand.splice(discardIdx, 1)[0];
     addLog('你弃置了【' + discarded.name + '】（手牌超限）', 'log-action');
   }
@@ -1503,11 +1552,12 @@ function aiTurn() {
 }
 
 function useAISmartSkills() {
-  // 关羽义绝 - 有红色牌且准备杀人时使用
+  // 关羽义绝 - 有杀且对方有闪时才使用（避免浪费）
   if (G.ai.hero?.id === 'guanyu' && !G.ai.skillUsed) {
     const hasSha = G.ai.hand.some(c => c.type === 'sha');
     const redCards = G.ai.hand.filter(c => c.color === 'red');
-    if (hasSha && redCards.length >= 1) {
+    const playerHasShan = G.player.hand.some(c => c.type === 'shan');
+    if (hasSha && redCards.length >= 2 && playerHasShan) {
       const idx = G.ai.hand.indexOf(redCards[0]);
       G.ai.hand.splice(idx, 1);
       G.ai.skillUsed = true;
@@ -1689,11 +1739,9 @@ function executeSmartAIActions() {
 }
 
 function finishAITurn() {
-  // AI弃牌阶段：手牌超过体力值时弃牌
+  // AI弃牌阶段：手牌超过体力值时智能弃牌
   while (G.ai.hand.length > G.ai.hp) {
-    // 策略：优先弃杀，保留闪和桃
-    const shaIdx = G.ai.hand.findIndex(c => c.type === 'sha');
-    const discardIdx = shaIdx >= 0 ? shaIdx : 0;
+    const discardIdx = aiChooseDiscard();
     const discarded = G.ai.hand.splice(discardIdx, 1)[0];
     addLog('兰轩弃置了【' + discarded.name + '】', 'log-action');
   }
