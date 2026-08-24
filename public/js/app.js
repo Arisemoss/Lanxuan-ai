@@ -110,6 +110,16 @@ document.addEventListener('DOMContentLoaded', () => {
   renderProfile();
   renderHeroCards();
   checkOnboarding();
+  initCursorGlow();
+  initEntranceAnimations();
+  loadGameStats();
+  
+  // 隐藏加载动画
+  const loadingEl = document.getElementById('loadingOverlay');
+  if (loadingEl) {
+    loadingEl.style.opacity = '0';
+    setTimeout(() => loadingEl.remove(), 500);
+  }
 });
 
 // ═══ 用户ID与数据持久化 ═══
@@ -722,6 +732,17 @@ document.getElementById('chatInput')?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendMsg();
 });
 
+// ═══ 全局快捷键 ═══
+document.addEventListener('keydown', (e) => {
+  // Esc 关闭弹窗
+  if (e.key === 'Escape') {
+    closeOverlay();
+    closeSettings();
+    closeOnboarding();
+    closeMobileSidebars();
+  }
+});
+
 // 初始消息
 addMsg('a', '（深夜，宿舍里响起震耳欲聋的鼾声，你忍无可忍摇醒他）');
 addMsg('a', '兰轩迷迷糊糊地坐起来，双眼迷离，有气无力地盯着你：');
@@ -1281,7 +1302,7 @@ function playCard(idx) {
   if (G.player.hero?.id === 'guanyu' && card.color === 'red' && card.type === 'shan') {
     if (G.player.shaUsed) { addLog('本回合已出过【杀】', ''); return; }
     G.player.hand.splice(idx, 1);
-    G.player.shaUsed = true;
+    if (G.player.hero?.id !== 'zhangfei') G.player.shaUsed = true;
     addLog('【武圣】你将红色【闪】当作【杀】使用！', 'log-skill');
     showPlayedCard({ type: 'sha', name: '杀' }, '关羽发动【武圣】！');
     triggerYaJiao(G.player);
@@ -1312,7 +1333,7 @@ function playCard(idx) {
     case 'sha': {
       if (G.player.shaUsed && G.player.hero.id !== 'zhangfei') { addLog('本回合已出过【杀】', ''); return; }
       G.player.hand.splice(idx, 1);
-      G.player.shaUsed = true;
+      if (G.player.hero?.id !== 'zhangfei') G.player.shaUsed = true;
       addLog('你对兰轩使用【杀】！', 'log-card');
       showPlayedCard(card, '你对兰轩使用【杀】！');
       triggerYaJiao(G.player);
@@ -1340,7 +1361,7 @@ function playCard(idx) {
       if (G.player.hero?.id === 'zhaoyun') {
         if (G.player.shaUsed) { addLog('本回合已出过【杀】', ''); return; }
         G.player.hand.splice(idx, 1);
-        G.player.shaUsed = true;
+        if (G.player.hero?.id !== 'zhangfei') G.player.shaUsed = true;
         addLog('【龙胆】你将【闪】当作【杀】使用！', 'log-skill');
         showPlayedCard({ type: 'sha', name: '杀' }, '赵云发动【龙胆】！');
         triggerYaJiao(G.player);
@@ -1469,8 +1490,6 @@ function aiTurn() {
   addLog('兰轩摸了牌', 'log-card');
 
   // AI智能策略 - 根据情况选择最优策略
-  let actionDelay = 0;
-  
   setTimeout(() => {
     // AI智能技能使用
     useAISmartSkills();
@@ -1772,7 +1791,7 @@ window.endTurn = endTurn;
 window.endGame = endGame;
 window.closeOverlay = closeOverlay;
 // ═══ 鼠标跟随光晕效果 ═══
-document.addEventListener('DOMContentLoaded', () => {
+function initCursorGlow() {
   const cursorGlow = document.getElementById('cursorGlow');
   if (!cursorGlow) return;
   
@@ -1784,7 +1803,6 @@ document.addEventListener('DOMContentLoaded', () => {
     mouseY = e.clientY;
   });
   
-  // 平滑跟随动画
   function animateGlow() {
     glowX += (mouseX - glowX) * 0.12;
     glowY += (mouseY - glowY) * 0.12;
@@ -1794,16 +1812,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   animateGlow();
   
-  // 鼠标离开窗口时隐藏
-  document.addEventListener('mouseleave', () => {
-    cursorGlow.style.opacity = '0';
-  });
-  
-  document.addEventListener('mouseenter', () => {
-    cursorGlow.style.opacity = '1';
-  });
-  
-  // 面板入场动画
+  document.addEventListener('mouseleave', () => { cursorGlow.style.opacity = '0'; });
+  document.addEventListener('mouseenter', () => { cursorGlow.style.opacity = '1'; });
+}
+
+// ═══ 面板入场动画 ═══
+function initEntranceAnimations() {
   setTimeout(() => {
     const panels = document.querySelectorAll('.sidebar-left, .sidebar-right, .chat-panel, .header');
     panels.forEach((p, i) => {
@@ -1811,15 +1825,13 @@ document.addEventListener('DOMContentLoaded', () => {
       p.style.animationDelay = (i * 0.1) + 's';
       p.style.opacity = '0';
     });
-    
-    // 重置初始消息的动画
     setTimeout(() => {
       document.querySelectorAll('.msg').forEach(msg => {
         msg.style.animation = 'msgIn 0.4s ease forwards';
       });
     }, 800);
   }, 100);
-});
+}
 
 
 window.showSettings = showSettings;
@@ -1857,5 +1869,4 @@ async function loadGameStats() {
   }
 }
 
-// 在初始化时加载战绩
-setTimeout(loadGameStats, 2000);
+// 战绩在 DOMContentLoaded 中加载
