@@ -76,11 +76,9 @@ const gameLimiter = createRateLimiter({
 
 // ═══ API路由 ═══
 
-// 聊天API
-app.use('/api/chat', chatLimiter, require('./chat'));
-
-// 数据持久化API
-app.use('/api/data', dataLimiter, require('./data'));
+// API路由（路由模块位于 server/ 目录，避免被 Vercel 识别为独立函数）
+app.use('/api/chat', chatLimiter, require('../server/chat'));
+app.use('/api/data', dataLimiter, require('../server/data'));
 
 // 游戏状态API
 app.use('/api/game', gameLimiter, require('./game'));
