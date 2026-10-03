@@ -81,10 +81,13 @@ body {
   line-height: 1.6;
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
+  /* 应用壳层固定为视口高度，滚动发生在各栏内部（dvh 兼容移动端地址栏伸缩） */
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   display: grid;
   grid-template-columns: 232px 1fr 300px;
-  grid-template-rows: var(--header-h) 1fr;
+  grid-template-rows: var(--header-h) minmax(0, 1fr);
   position: relative;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -397,6 +400,7 @@ header::after {
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  min-height: 0;
 }
 
 .chat-panel {
@@ -1182,6 +1186,7 @@ header::after {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 .r-header {
@@ -1210,6 +1215,7 @@ header::after {
 
 .game-log {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--sp-3) var(--sp-4);
   font-size: var(--fs-sm);
@@ -1799,7 +1805,7 @@ header::after {
 @media (max-width: 860px) {
   body {
     grid-template-columns: 1fr;
-    grid-template-rows: var(--header-h) 1fr;
+    grid-template-rows: var(--header-h) minmax(0, 1fr);
   }
   .sidebar-left,
   .sidebar-right {
