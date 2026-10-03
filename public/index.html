@@ -260,11 +260,12 @@
         </label>
       </div>
       <div class="settings-group">
-        <label class="settings-label">开发者模式<span class="settings-hint" style="display:block;margin-top:2px">开启后右下角出现日志面板，可在控制台访问 window.__LANXUAN__</span></label>
+        <label class="settings-label">开发者模式<span class="settings-hint" style="display:block;margin-top:2px">开启后可在控制台访问 window.__LANXUAN__，并出现日志面板入口</span></label>
         <label class="switch">
           <input type="checkbox" id="devModeToggle" onchange="onDevModeToggle(this.checked)">
           <span class="switch-slider"></span>
         </label>
+        <button type="button" class="dev-open-btn" id="devOpenInSettings" onclick="devToggleConsole(true)">打开日志面板</button>
       </div>
       <div class="settings-section-title">AI 对话</div>
       <div class="settings-group">

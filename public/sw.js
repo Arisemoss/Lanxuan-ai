@@ -3,7 +3,7 @@
  * 提供离线缓存和PWA支持
  */
 
-const CACHE_NAME = 'lanxuan-v9';
+const CACHE_NAME = 'lanxuan-v10';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

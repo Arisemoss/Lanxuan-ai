@@ -96,8 +96,10 @@ function syncThemeControls() {
   document.querySelectorAll('#themeSegmented [data-theme-choice]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.themeChoice === S.ui.theme);
   });
-  const toggle = document.getElementById('cursorGlowToggle');
-  if (toggle) toggle.checked = !!S.ui.cursorGlow;
+  const glowToggle = document.getElementById('cursorGlowToggle');
+  if (glowToggle) glowToggle.checked = !!S.ui.cursorGlow;
+  const devToggle = document.getElementById('devModeToggle');
+  if (devToggle) devToggle.checked = !!S.ui.devMode;
 }
 
 // ═══ 日志系统（配合开发者模式的日志面板） ═══

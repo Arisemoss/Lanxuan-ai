@@ -1900,6 +1900,8 @@ header::after {
   header { background: var(--bg-2); }
   .chat-input-area { background: var(--bg-2); }
   .gb-header, .gb-zone { background: var(--surface-2); }
+  /* 开发者悬浮钮在移动端隐藏，改用设置弹窗内的「打开日志面板」按钮 */
+  .dev-fab { display: none !important; }
 }
 
 @media (max-width: 520px) {
@@ -2372,6 +2374,25 @@ html.no-cursor-glow .cursor-glow { display: none !important; }
 }
 html.dev-mode .dev-fab { display: flex; }
 .dev-fab:hover { transform: scale(1.08); }
+
+/* 设置弹窗内的日志入口：仅开发者模式显示 */
+.dev-open-btn {
+  display: none;
+  width: 100%;
+  height: 36px;
+  margin-top: var(--sp-2);
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(45, 212, 191, 0.4);
+  background: rgba(45, 212, 191, 0.08);
+  color: var(--jade);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.dev-open-btn:hover { background: rgba(45, 212, 191, 0.16); }
+html.dev-mode .dev-open-btn { display: block; }
 
 .dev-console {
   display: none;
