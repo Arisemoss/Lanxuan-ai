@@ -18,7 +18,7 @@ const {
   securityHeaders,
   errorHandler,
   notFoundHandler
-} = require('./middleware');
+} = require('../server/middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -81,7 +81,7 @@ app.use('/api/chat', chatLimiter, require('../server/chat'));
 app.use('/api/data', dataLimiter, require('../server/data'));
 
 // 游戏状态API
-app.use('/api/game', gameLimiter, require('./game'));
+app.use('/api/game', gameLimiter, require('../server/game'));
 
 // 健康检查端点（增强版）
 app.get('/api/health', (req, res) => {
