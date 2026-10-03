@@ -20,15 +20,15 @@ const S = {
   }
 };
 
-// AI提供商模型映射
+// AI提供商模型映射（下拉列表末尾自动附带「自定义模型…」可手填任意模型 ID）
 const PROVIDER_MODELS = {
   mimo: ['mimo-v2-flash'],
-  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+  openai: ['gpt-5', 'gpt-5-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4o-mini', 'o4-mini'],
   deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-  moonshot: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
-  siliconflow: ['deepseek-ai/DeepSeek-V3', 'deepseek-ai/DeepSeek-R1', 'Qwen/Qwen2.5-72B-Instruct'],
-  openrouter: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash'],
-  custom: ['custom']
+  moonshot: ['kimi-k2-0905-preview', 'kimi-k2-0711-preview', 'kimi-k2-turbo-preview', 'kimi-latest', 'moonshot-v1-128k', 'moonshot-v1-32k', 'moonshot-v1-8k'],
+  siliconflow: ['deepseek-ai/DeepSeek-V3.1', 'deepseek-ai/DeepSeek-V3', 'deepseek-ai/DeepSeek-R1', 'Qwen/Qwen3-235B-A22B', 'Qwen/Qwen3-32B', 'Qwen/Qwen2.5-72B-Instruct', 'Qwen/Qwen2.5-7B-Instruct', 'THUDM/glm-4-9b-chat'],
+  openrouter: ['openai/gpt-5', 'openai/gpt-4o', 'openai/gpt-4o-mini', 'anthropic/claude-sonnet-4', 'google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'deepseek/deepseek-chat-v3-0324', 'deepseek/deepseek-r1-0528', 'x-ai/grok-4', 'moonshotai/kimi-k2'],
+  custom: []
 };
 
 // ═══ 音效系统（预留接口）═══
@@ -224,12 +224,19 @@ function loadApiSettings() {
 function saveApiSettings() {
   const provider = document.getElementById('providerSelect').value;
   const apiKey = document.getElementById('apiKeyInput').value.trim();
-  const model = document.getElementById('modelSelect').value;
+  const select = document.getElementById('modelSelect');
+  const customModelInput = document.getElementById('customModelInput');
+  const model = select.value === '__custom__' ? customModelInput.value.trim() : select.value;
   const apiUrl = document.getElementById('customApiUrl').value.trim();
+
+  if (!model) {
+    showToast('请输入模型 ID');
+    return;
+  }
 
   S.apiSettings = { provider, apiKey, model, apiUrl };
   localStorage.setItem('lanxuan_api_settings', JSON.stringify(S.apiSettings));
-  
+
   updateApiStatus();
   closeSettings();
   showToast('API设置已保存');
@@ -267,13 +274,15 @@ function onProviderChange() {
     customUrlGroup.style.display = 'none';
   }
   
-  updateModelOptions(provider);
+  updateModelOptions(provider, { keepSaved: false });
 }
 
-function updateModelOptions(provider) {
+function updateModelOptions(provider, options = {}) {
+  const { keepSaved = true } = options;
   const select = document.getElementById('modelSelect');
-  const models = PROVIDER_MODELS[provider] || PROVIDER_MODELS.mimo;
-  
+  const input = document.getElementById('customModelInput');
+  const models = PROVIDER_MODELS[provider] || [];
+
   select.innerHTML = '';
   models.forEach(m => {
     const option = document.createElement('option');
@@ -281,11 +290,38 @@ function updateModelOptions(provider) {
     option.textContent = m;
     select.appendChild(option);
   });
-  
-  // 如果当前保存的模型在列表中，选中它
-  if (models.includes(S.apiSettings.model)) {
-    select.value = S.apiSettings.model;
+  const customOption = document.createElement('option');
+  customOption.value = '__custom__';
+  customOption.textContent = '自定义模型…';
+  select.appendChild(customOption);
+
+  // 恢复优先级：已保存的模型在当前预设里 → 直接选中；
+  // 不在预设里且是打开设置/载入场景 → 落到自定义输入框；
+  // 切换提供商场景 → 默认选第一个预设（custom 提供商始终用手填输入框）
+  const saved = (S.apiSettings.model || '').trim();
+  if (provider === 'custom') {
+    select.value = '__custom__';
+    if (saved) input.value = saved;
+  } else if (saved && models.includes(saved)) {
+    select.value = saved;
+  } else if (saved && keepSaved) {
+    select.value = '__custom__';
+    input.value = saved;
+  } else {
+    select.selectedIndex = 0;
   }
+  syncCustomModelInput();
+}
+
+// 选择「自定义模型…」时显示手填输入框
+function syncCustomModelInput() {
+  const select = document.getElementById('modelSelect');
+  const input = document.getElementById('customModelInput');
+  input.style.display = select.value === '__custom__' ? 'block' : 'none';
+}
+
+function onModelSelectChange() {
+  syncCustomModelInput();
 }
 
 function toggleApiKeyVisibility() {
@@ -1886,6 +1922,7 @@ window.showSettings = showSettings;
 window.closeSettings = closeSettings;
 window.saveApiSettings = saveApiSettings;
 window.onProviderChange = onProviderChange;
+window.onModelSelectChange = onModelSelectChange;
 window.toggleApiKeyVisibility = toggleApiKeyVisibility;
 window.testApiConnection = testApiConnection;
 window.showOnboarding = showOnboarding;

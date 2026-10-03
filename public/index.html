@@ -258,9 +258,10 @@
       </div>
       <div class="settings-group">
         <label class="settings-label">模型</label>
-        <select class="settings-select" id="modelSelect">
+        <select class="settings-select" id="modelSelect" onchange="onModelSelectChange()">
           <option value="mimo-v2-flash">mimo-v2-flash</option>
         </select>
+        <input class="settings-input" id="customModelInput" placeholder="输入模型 ID，如 gpt-4o、deepseek-chat" style="display:none" autocomplete="off">
       </div>
       <div class="settings-group">
         <label class="settings-label">API 状态</label>

@@ -20,12 +20,12 @@ if (!API_CONFIG.key) {
   console.warn('⚠️ 警告: MIMO_API_KEY 未配置，聊天功能将使用降级模式');
 }
 
-// AI提供商配置
+// AI提供商配置（models 与前端 PROVIDER_MODELS 保持一致；自定义提供商由前端手填模型 ID）
 const PROVIDERS = {
   openai: {
     name: 'OpenAI',
     url: 'https://api.openai.com/v1/chat/completions',
-    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo']
+    models: ['gpt-5', 'gpt-5-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4o-mini', 'o4-mini']
   },
   deepseek: {
     name: 'DeepSeek',
@@ -35,22 +35,22 @@ const PROVIDERS = {
   moonshot: {
     name: 'Moonshot',
     url: 'https://api.moonshot.cn/v1/chat/completions',
-    models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k']
+    models: ['kimi-k2-0905-preview', 'kimi-k2-0711-preview', 'kimi-k2-turbo-preview', 'kimi-latest', 'moonshot-v1-128k', 'moonshot-v1-32k', 'moonshot-v1-8k']
   },
   siliconflow: {
     name: 'SiliconFlow',
     url: 'https://api.siliconflow.cn/v1/chat/completions',
-    models: ['deepseek-ai/DeepSeek-V3', 'deepseek-ai/DeepSeek-R1', 'Qwen/Qwen2.5-72B-Instruct']
+    models: ['deepseek-ai/DeepSeek-V3.1', 'deepseek-ai/DeepSeek-V3', 'deepseek-ai/DeepSeek-R1', 'Qwen/Qwen3-235B-A22B', 'Qwen/Qwen3-32B', 'Qwen/Qwen2.5-72B-Instruct', 'Qwen/Qwen2.5-7B-Instruct', 'THUDM/glm-4-9b-chat']
   },
   openrouter: {
     name: 'OpenRouter',
     url: 'https://openrouter.ai/api/v1/chat/completions',
-    models: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash']
+    models: ['openai/gpt-5', 'openai/gpt-4o', 'openai/gpt-4o-mini', 'anthropic/claude-sonnet-4', 'google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'deepseek/deepseek-chat-v3-0324', 'deepseek/deepseek-r1-0528', 'x-ai/grok-4', 'moonshotai/kimi-k2']
   },
   custom: {
     name: '自定义',
     url: '',
-    models: ['custom']
+    models: []
   }
 };
 
