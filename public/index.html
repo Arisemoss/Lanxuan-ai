@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,7 +21,18 @@
   <meta name="twitter:image" content="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=%E6%B8%85%E6%96%B0%E8%93%9D%E7%99%BD%E9%A3%8E%E6%A0%BC%E6%8F%92%E7%94%BB%EF%BC%8C%E4%B8%80%E4%BD%8D%E5%82%B2%E5%A8%87%E7%9A%84%E8%88%8D%E5%8F%8B%E5%B0%91%E5%B9%B4%E5%9D%90%E5%9C%A8%E5%AE%BF%E8%88%8D%E6%A1%8C%E5%89%8D%EF%BC%8C%E6%89%8B%E4%B8%AD%E6%8B%BF%E7%9D%80%E4%B8%89%E5%9B%BD%E6%9D%80%E5%8D%A1%E7%89%8C%EF%BC%8C%E8%83%8C%E6%99%AF%E6%9C%89%E6%B7%A1%E8%93%9D%E8%89%B2%E6%B8%90%E5%8F%98%E3%80%81%E6%89%91%E5%85%8B%E7%89%8C%E5%85%83%E7%B4%A0%E5%92%8C%E5%85%89%E6%99%95%EF%BC%8C%E7%94%BB%E9%9D%A2%E7%AE%80%E6%B4%81%E6%98%8E%E4%BA%AE%EF%BC%8C%E4%BA%8C%E6%AC%A1%E5%85%83%E9%A3%8E%E6%A0%BC%EF%BC%8C%E5%AF%B9%E6%88%98%E5%B9%B3%E5%8F%B0%E6%B0%9B%E5%9B%B4%EF%BC%8C%E5%B8%A6%E6%9C%89%E2%80%9C%E5%85%B0%E8%BD%A9%E2%80%9D%E6%96%87%E5%AD%97%E6%A0%87%E5%BF%97&image_size=landscape_4_3">
 
   <title>兰轩 - 三国杀1v1在线对战平台</title>
-  
+
+  <!-- 主题预置：在样式表渲染前应用已保存的主题，避免首屏闪烁 -->
+  <script>
+  try {
+    var __ui = JSON.parse(localStorage.getItem('lanxuan_ui_settings') || '{}');
+    var __mode = __ui.theme || 'dark';
+    var __dark = __mode === 'dark' || (__mode === 'system' && (!window.matchMedia || matchMedia('(prefers-color-scheme: dark)').matches));
+    document.documentElement.dataset.theme = __dark ? 'dark' : 'light';
+    if (__ui.cursorGlow === false) document.documentElement.classList.add('no-cursor-glow');
+  } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+  </script>
+
   <!-- Google Fonts: Noto Sans SC & Noto Serif SC -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,10 +48,10 @@
 <body>
 
 <!-- 加载动画 -->
-<div id="loadingOverlay" style="position:fixed;inset:0;background:#0c1117;display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s">
+<div id="loadingOverlay">
   <div style="text-align:center">
-    <div style="font-size:36px;font-family:'Noto Serif SC',serif;color:#2dd4bf;margin-bottom:12px;animation:typingB 1s infinite">兰</div>
-    <div style="font-size:12px;color:#6d7a8a;letter-spacing:.1em">加载中...</div>
+    <div class="loading-char">兰</div>
+    <div class="loading-hint">加载中...</div>
   </div>
 </div>
 
@@ -62,7 +73,7 @@
     <button class="mobile-sidebar-btn" id="mobileStatusBtn" onclick="toggleMobileSidebar('left')" aria-label="状态">状态</button>
     <button class="mobile-sidebar-btn" id="mobileLogBtn" onclick="toggleMobileSidebar('right')" aria-label="记录">记录</button>
     <span class="header-time" id="clock"></span>
-    <button class="settings-btn" onclick="showSettings()" title="AI设置">⚙</button>
+    <button class="settings-btn" onclick="showSettings()" title="设置">⚙</button>
   </div>
 </header>
 
@@ -227,11 +238,28 @@
 <div class="overlay" id="settingsOverlay">
   <div class="settings-card">
     <div class="settings-header">
-      <div class="settings-title">AI 设置</div>
-      <div class="settings-sub">配置你的AI对话提供商，让兰轩更智能</div>
+      <div class="settings-title">设置</div>
+      <div class="settings-sub">界面偏好与 AI 对话配置</div>
       <button class="settings-close" onclick="closeSettings()">✕</button>
     </div>
     <div class="settings-body">
+      <div class="settings-section-title">通用</div>
+      <div class="settings-group">
+        <label class="settings-label">主题模式</label>
+        <div class="theme-segmented" id="themeSegmented">
+          <button type="button" data-theme-choice="dark" onclick="onThemeChoice('dark')">🌙 夜间</button>
+          <button type="button" data-theme-choice="light" onclick="onThemeChoice('light')">☀️ 白天</button>
+          <button type="button" data-theme-choice="system" onclick="onThemeChoice('system')">🖥 跟随系统</button>
+        </div>
+      </div>
+      <div class="settings-group">
+        <label class="settings-label">鼠标跟随光效</label>
+        <label class="switch">
+          <input type="checkbox" id="cursorGlowToggle" onchange="onCursorGlowToggle(this.checked)">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+      <div class="settings-section-title">AI 对话</div>
       <div class="settings-group">
         <label class="settings-label">AI 提供商</label>
         <select class="settings-select" id="providerSelect" onchange="onProviderChange()">

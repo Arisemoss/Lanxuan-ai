@@ -31,6 +31,73 @@ const PROVIDER_MODELS = {
   custom: []
 };
 
+// ═══ 界面设置（主题 / 光效）═══
+const UI_SETTINGS_KEY = 'lanxuan_ui_settings';
+
+function systemPrefersDark() {
+  return !window.matchMedia || window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function resolvedTheme(mode) {
+  return mode === 'system' ? (systemPrefersDark() ? 'dark' : 'light') : mode;
+}
+
+function applyTheme(mode) {
+  const theme = resolvedTheme(mode);
+  document.documentElement.dataset.theme = theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = theme === 'light' ? '#f4f2ec' : '#0c1117';
+}
+
+function applyCursorGlow(enabled) {
+  document.documentElement.classList.toggle('no-cursor-glow', !enabled);
+}
+
+function loadUiSettings() {
+  let s = { theme: 'dark', cursorGlow: true };
+  try {
+    const saved = JSON.parse(localStorage.getItem(UI_SETTINGS_KEY));
+    if (saved && typeof saved === 'object') s = { ...s, ...saved };
+  } catch (e) { /* 忽略损坏数据，用默认值 */ }
+  S.ui = s;
+  applyTheme(s.theme);
+  applyCursorGlow(s.cursorGlow);
+  // 跟随系统模式下，系统切换昼夜时实时跟随
+  if (window.matchMedia) {
+    try {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (S.ui && S.ui.theme === 'system') applyTheme('system');
+      });
+    } catch (e) { /* 旧浏览器不支持 addEventListener 形式 */ }
+  }
+  return s;
+}
+
+function saveUiSettings(patch) {
+  S.ui = { ...S.ui, ...patch };
+  localStorage.setItem(UI_SETTINGS_KEY, JSON.stringify(S.ui));
+}
+
+function onThemeChoice(mode) {
+  saveUiSettings({ theme: mode });
+  applyTheme(mode);
+  syncThemeControls();
+  showToast(mode === 'dark' ? '已切换到夜间主题' : mode === 'light' ? '已切换到白天主题' : '已跟随系统主题');
+}
+
+function onCursorGlowToggle(checked) {
+  saveUiSettings({ cursorGlow: !!checked });
+  applyCursorGlow(!!checked);
+}
+
+function syncThemeControls() {
+  document.querySelectorAll('#themeSegmented [data-theme-choice]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.themeChoice === S.ui.theme);
+  });
+  const toggle = document.getElementById('cursorGlowToggle');
+  if (toggle) toggle.checked = !!S.ui.cursorGlow;
+}
+
 // ═══ 音效系统（预留接口）═══
 const SFX = {
   enabled: true,
@@ -118,6 +185,7 @@ const G = {
 document.addEventListener('DOMContentLoaded', () => {
   initUserId();
   loadUserData();
+  loadUiSettings();
   loadApiSettings();
   initClock();
   renderProfile();
@@ -255,6 +323,7 @@ function showSettings() {
     document.getElementById('customApiUrl').value = S.apiSettings.apiUrl;
     onProviderChange();
     updateApiStatus();
+    syncThemeControls();
   } catch (e) {
     console.warn('加载设置到界面失败:', e);
   }
@@ -1923,6 +1992,8 @@ window.closeSettings = closeSettings;
 window.saveApiSettings = saveApiSettings;
 window.onProviderChange = onProviderChange;
 window.onModelSelectChange = onModelSelectChange;
+window.onThemeChoice = onThemeChoice;
+window.onCursorGlowToggle = onCursorGlowToggle;
 window.toggleApiKeyVisibility = toggleApiKeyVisibility;
 window.testApiConnection = testApiConnection;
 window.showOnboarding = showOnboarding;
