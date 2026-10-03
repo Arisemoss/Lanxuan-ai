@@ -3,13 +3,15 @@
  * 提供离线缓存和PWA支持
  */
 
-const CACHE_NAME = 'lanxuan-v7';
+const CACHE_NAME = 'lanxuan-v9';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/css/style.css',
   '/js/app.js',
-  '/manifest.json'
+  '/manifest.json',
+  '/images/ink-mountains.svg',
+  '/images/paper-texture.svg'
 ];
 
 // 安装事件 - 预缓存静态资源

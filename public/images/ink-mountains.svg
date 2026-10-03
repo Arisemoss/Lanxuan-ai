@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 420" preserveAspectRatio="xMidYMax slice">
+  <defs>
+    <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8fa3b0" stop-opacity="0"/>
+      <stop offset="0.65" stop-color="#8fa3b0" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#8fa3b0" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a6b7a" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#5a6b7a" stop-opacity="0.06"/>
+    </linearGradient>
+    <linearGradient id="mid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#42525f" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#42525f" stop-opacity="0.10"/>
+    </linearGradient>
+    <linearGradient id="near" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c3a47" stop-opacity="0.40"/>
+      <stop offset="1" stop-color="#2c3a47" stop-opacity="0.16"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 远山 -->
+  <path fill="url(#far)" d="M0 208 L90 186 L170 200 L260 160 L350 192 L450 150 L560 190 L660 148 L760 186 L860 156 L960 188 L1060 152 L1170 190 L1270 158 L1380 192 L1480 162 L1600 190 L1600 420 L0 420 Z"/>
+  <!-- 云雾带 -->
+  <rect x="0" y="196" width="1600" height="90" fill="url(#mist)"/>
+  <!-- 中景山 -->
+  <path fill="url(#mid)" d="M0 268 L120 236 L240 258 L360 214 L500 256 L620 220 L760 258 L900 212 L1040 254 L1180 218 L1320 256 L1460 224 L1600 254 L1600 420 L0 420 Z"/>
+  <rect x="0" y="262" width="1600" height="80" fill="url(#mist)"/>
+  <!-- 近景山 -->
+  <path fill="url(#near)" d="M0 330 L160 300 L320 322 L480 284 L640 320 L820 278 L1000 318 L1180 284 L1360 320 L1520 290 L1600 314 L1600 420 L0 420 Z"/>
+</svg>

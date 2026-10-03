@@ -47,6 +47,7 @@ function applyTheme(mode) {
   document.documentElement.dataset.theme = theme;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = theme === 'light' ? '#f4f2ec' : '#0c1117';
+  if (typeof dlog === 'function') dlog('debug', '主题 → ' + theme + '（模式: ' + mode + '）');
 }
 
 function applyCursorGlow(enabled) {
@@ -54,7 +55,7 @@ function applyCursorGlow(enabled) {
 }
 
 function loadUiSettings() {
-  let s = { theme: 'dark', cursorGlow: true };
+  let s = { theme: 'dark', cursorGlow: true, devMode: false };
   try {
     const saved = JSON.parse(localStorage.getItem(UI_SETTINGS_KEY));
     if (saved && typeof saved === 'object') s = { ...s, ...saved };
@@ -62,6 +63,7 @@ function loadUiSettings() {
   S.ui = s;
   applyTheme(s.theme);
   applyCursorGlow(s.cursorGlow);
+  applyDevMode(s.devMode);
   // 跟随系统模式下，系统切换昼夜时实时跟随
   if (window.matchMedia) {
     try {
@@ -96,6 +98,116 @@ function syncThemeControls() {
   });
   const toggle = document.getElementById('cursorGlowToggle');
   if (toggle) toggle.checked = !!S.ui.cursorGlow;
+}
+
+// ═══ 日志系统（配合开发者模式的日志面板） ═══
+// 用法：dlog('info' | 'warn' | 'error' | 'debug', '消息')
+const DevLog = {
+  buf: [],      // 环形缓冲，最多保留 500 条
+  max: 500,
+  filter: 'all',
+  open: false
+};
+
+function dlog(level, msg) {
+  DevLog.buf.push({ t: new Date(), level, msg: String(msg) });
+  if (DevLog.buf.length > DevLog.max) DevLog.buf.shift();
+  if (DevLog.open && DevLog.ui) devRender();
+}
+
+function fmtArg(a) {
+  if (typeof a === 'string') return a;
+  if (a instanceof Error) return a.stack || (a.name + ': ' + a.message);
+  try { return JSON.stringify(a); } catch (e) { return String(a); }
+}
+
+function initLogger() {
+  if (initLogger._done) return;
+  initLogger._done = true;
+  // 捕获 console.warn / error（转发给原生实现，避免递归）
+  ['warn', 'error'].forEach(level => {
+    const orig = console[level].bind(console);
+    console[level] = (...args) => {
+      dlog(level, args.map(fmtArg).join(' '));
+      orig(...args);
+    };
+  });
+  window.addEventListener('error', e => dlog('error', e.message + ' @ ' + (e.filename || '') + ':' + e.lineno));
+  window.addEventListener('unhandledrejection', e => dlog('error', '未处理的 Promise 拒绝: ' + fmtArg(e.reason)));
+  dlog('info', '应用启动');
+}
+
+// ═══ 开发者模式 ═══
+function applyDevMode(on) {
+  document.documentElement.classList.toggle('dev-mode', !!on);
+  window.__LANXUAN__ = on ? {
+    S,                       // 全局状态（好感度/信任度/API 设置等）
+    get G() { return typeof G !== 'undefined' ? G : null; },  // 对局状态
+    DevLog,
+    dlog
+  } : undefined;
+  if (!on && DevLog.open) devToggleConsole(false);
+}
+
+function onDevModeToggle(checked) {
+  saveUiSettings({ devMode: !!checked });
+  applyDevMode(checked);
+  showToast(checked ? '开发者模式已开启' : '开发者模式已关闭');
+}
+
+function devToggleConsole(open) {
+  DevLog.open = open;
+  const c = document.getElementById('devConsole');
+  if (!c) return;
+  c.classList.toggle('open', open);
+  if (open) devRender();
+}
+
+function devSetFilter(level) {
+  DevLog.filter = level;
+  document.querySelectorAll('#devFilters button').forEach(b => {
+    b.classList.toggle('active', b.dataset.level === level);
+  });
+  devRender();
+}
+
+function devClearLogs() {
+  DevLog.buf = [];
+  devRender();
+}
+
+function devDownloadLogs() {
+  const text = DevLog.buf.map(e =>
+    e.t.toISOString() + ' [' + e.level.toUpperCase() + '] ' + e.msg
+  ).join('\n') || '（无日志）';
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'lanxuan-logs-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  dlog('info', '日志已导出（' + DevLog.buf.length + ' 条）');
+}
+
+function devRender() {
+  const body = document.getElementById('devConsoleBody');
+  if (!body) return;
+  DevLog.ui = true;
+  const list = DevLog.buf.filter(e => DevLog.filter === 'all' || e.level === DevLog.filter).slice(-200);
+  if (!list.length) {
+    body.innerHTML = '<div class="dev-empty">暂无日志</div>';
+    return;
+  }
+  body.innerHTML = list.map(e => {
+    const t = e.t.toTimeString().slice(0, 8);
+    return '<div class="dev-entry ' + e.level + '"><span class="t">' + t +
+      '</span><span class="lv">' + e.level.toUpperCase() +
+      '</span><span class="msg-text"></span></div>';
+  }).join('');
+  // textContent 逐条填充，避免把日志内容当 HTML 执行
+  const nodes = body.querySelectorAll('.msg-text');
+  nodes.forEach((n, i) => { n.textContent = list[i].msg; });
+  body.scrollTop = body.scrollHeight;
 }
 
 // ═══ 音效系统（预留接口）═══
@@ -186,6 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initUserId();
   loadUserData();
   loadUiSettings();
+  initLogger();
   loadApiSettings();
   initClock();
   renderProfile();
@@ -304,6 +417,7 @@ function saveApiSettings() {
 
   S.apiSettings = { provider, apiKey, model, apiUrl };
   localStorage.setItem('lanxuan_api_settings', JSON.stringify(S.apiSettings));
+  dlog('info', 'AI 设置已保存：' + provider + ' / ' + model);
 
   updateApiStatus();
   closeSettings();
@@ -797,6 +911,7 @@ async function sendMsg() {
   S.busy = true;
   
   addMsg('u', text);
+  dlog('info', '发送消息: ' + text.slice(0, 40));
   updateMood(text);
   S.history.push({ role: 'user', content: text });
   
@@ -899,6 +1014,7 @@ function selectHero(heroId) {
   
   const aiPool = HEROES.filter(h => h.id !== heroId);
   G.ai.hero = aiPool[Math.floor(Math.random() * aiPool.length)];
+  dlog('info', '开始对局：你=' + hero.name + '，兰轩=' + G.ai.hero.name);
   
   document.getElementById('heroSelectScreen').classList.remove('active');
   document.getElementById('gameBoard').classList.add('active');
@@ -1140,6 +1256,7 @@ function checkEnd() {
 
 function endGame(reason) {
   G.active = false;
+  dlog('info', '对局结束（' + reason + '）');
   document.getElementById('chatPanel').classList.remove('hidden');
   document.getElementById('gameBoard').classList.remove('active');
   document.getElementById('heroSelectScreen').classList.remove('active');

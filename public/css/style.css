@@ -49,7 +49,7 @@
   --scrim: rgba(5, 8, 12, 0.5);
   --msg-u-bg: rgba(45, 212, 191, 0.1);
   --msg-u-border: rgba(45, 212, 191, 0.22);
-  --wm-color: var(--wm-color);
+  --wm-color: rgba(255, 255, 255, 0.028);
 
   /* ── 字号阶 ── */
   --fs-xs: 11px;
@@ -128,8 +128,10 @@ body::after {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.015) 1px, transparent 0);
-  background-size: 32px 32px;
+  background-image:
+    url('../images/paper-texture.svg'),
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.015) 1px, transparent 0);
+  background-size: 240px 240px, 32px 32px;
   z-index: -1;
   pointer-events: none;
 }
@@ -138,7 +140,6 @@ body::after {
 .bg-glow {
   position: fixed;
   border-radius: 50%;
-  filter: blur(100px);
   pointer-events: none;
   z-index: -1;
 }
@@ -167,8 +168,8 @@ body::after {
 header {
   grid-column: 1 / -1;
   background: var(--header-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -271,8 +272,8 @@ header::after {
 /* ═══ 左栏 · 角色状态 ═══ */
 .sidebar-left {
   background: var(--panel-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
   border-right: 1px solid var(--border);
   padding: var(--sp-4);
   display: flex;
@@ -491,8 +492,8 @@ header::after {
 .chat-input-area {
   padding: var(--sp-4) var(--sp-5);
   background: var(--header-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
   border-top: 1px solid var(--border);
 }
 
@@ -570,8 +571,8 @@ header::after {
   position: absolute;
   inset: 0;
   background: var(--sheet-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
   display: none;
   flex-direction: column;
   padding: var(--sp-6);
@@ -724,7 +725,9 @@ header::after {
 .gb-felt {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 40%, #131c2b 0%, #0e1520 55%, #090d14 100%);
+  background:
+    url('../images/ink-mountains.svg') bottom center / 100% auto no-repeat,
+    radial-gradient(ellipse at 50% 40%, #131c2b 0%, #0e1520 55%, #090d14 100%);
 }
 
 .gb-felt::before {
@@ -1211,8 +1214,8 @@ header::after {
 /* ═══ 右栏 · 对局记录 ═══ */
 .sidebar-right {
   background: var(--panel-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -1845,6 +1848,13 @@ header::after {
     grid-template-columns: 1fr;
     grid-template-rows: var(--header-h) minmax(0, 1fr);
   }
+  /* 移动端性能降级：磨砂在小屏代价高，改实底 */
+  header, .sidebar-left, .sidebar-right, .chat-input-area, .hero-select-screen, .gb-header, .gb-zone {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  header { background: var(--bg-2); }
+  .chat-input-area { background: var(--bg-2); }
   .sidebar-left,
   .sidebar-right {
     display: none;
@@ -1881,6 +1891,15 @@ header::after {
     opacity: 1;
     pointer-events: all;
   }
+
+  /* 移动端性能降级：磨砂在小屏代价高，改实底 */
+  header, .sidebar-left, .sidebar-right, .chat-input-area, .hero-select-screen, .gb-header, .gb-zone {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  header { background: var(--bg-2); }
+  .chat-input-area { background: var(--bg-2); }
+  .gb-header, .gb-zone { background: var(--surface-2); }
 }
 
 @media (max-width: 520px) {
@@ -2127,7 +2146,9 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(30, 
 
 /* 浅色下牌桌改宣纸毡面 */
 html[data-theme="light"] .gb-felt {
-  background: radial-gradient(ellipse at 50% 40%, #fbfaf5 0%, #f1eee4 55%, #e7e3d5 100%);
+  background:
+    url('../images/ink-mountains.svg') bottom center / 100% auto no-repeat,
+    radial-gradient(ellipse at 50% 40%, #fbfaf5 0%, #f1eee4 55%, #e7e3d5 100%);
 }
 html[data-theme="light"] .gb-felt::before {
   background:
@@ -2328,3 +2349,130 @@ html.no-cursor-glow .cursor-glow { display: none !important; }
   color: var(--text-3);
   letter-spacing: 0.1em;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   开发者模式：日志控制台（始终深色，保持终端观感）
+   ═══════════════════════════════════════════════════════════════ */
+.dev-fab {
+  display: none;
+  position: fixed;
+  right: var(--sp-4);
+  bottom: var(--sp-4);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--card-modal-bg);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-2);
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  z-index: 400;
+}
+html.dev-mode .dev-fab { display: flex; }
+.dev-fab:hover { transform: scale(1.08); }
+
+.dev-console {
+  display: none;
+  position: fixed;
+  right: var(--sp-4);
+  bottom: var(--sp-4);
+  width: min(540px, calc(100vw - 32px));
+  height: min(440px, 62vh);
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-3);
+  z-index: 450;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dev-console.open { display: flex; }
+
+.dev-console-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid #30363d;
+  background: #161b22;
+  flex-shrink: 0;
+}
+
+.dev-title {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: #e9edf2;
+  font-family: var(--mono);
+  letter-spacing: 0.1em;
+}
+
+.dev-filters { display: flex; gap: 4px; }
+
+.dev-filters button {
+  height: 24px;
+  padding: 0 8px;
+  font-size: var(--fs-xs);
+  border: 1px solid #30363d;
+  background: transparent;
+  color: #a3afbd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: color 0.15s, border-color 0.15s;
+}
+.dev-filters button.active { background: rgba(31, 111, 235, 0.13); color: #58a6ff; border-color: rgba(31, 111, 235, 0.4); }
+
+.dev-spacer { flex: 1; }
+
+.dev-btn {
+  height: 24px;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-xs);
+  border: 1px solid #30363d;
+  background: transparent;
+  color: #a3afbd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: color 0.15s, border-color 0.15s;
+}
+.dev-btn:hover { color: #e9edf2; border-color: #6d7a8a; }
+
+.dev-close {
+  background: none;
+  border: none;
+  color: #6d7a8a;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+}
+.dev-close:hover { color: #e9edf2; }
+
+.dev-console-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-2) var(--sp-3);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.7;
+}
+
+.dev-entry {
+  display: flex;
+  gap: var(--sp-2);
+  padding: 2px 0;
+  border-bottom: 1px solid #161b22;
+}
+.dev-entry .t { color: #6d7a8a; flex-shrink: 0; }
+.dev-entry .lv { flex-shrink: 0; width: 42px; font-weight: 700; }
+.dev-entry.info .lv { color: #58a6ff; }
+.dev-entry.warn .lv { color: #d29922; }
+.dev-entry.error .lv { color: #f85149; }
+.dev-entry.debug .lv { color: #8b949e; }
+.dev-entry.error .msg-text { color: #ffa198; }
+.dev-entry .msg-text { color: #c9d1d9; word-break: break-all; white-space: pre-wrap; }
+
+.dev-empty { color: #6d7a8a; text-align: center; padding: var(--sp-6) 0; }

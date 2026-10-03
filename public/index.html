@@ -259,6 +259,13 @@
           <span class="switch-slider"></span>
         </label>
       </div>
+      <div class="settings-group">
+        <label class="settings-label">开发者模式<span class="settings-hint" style="display:block;margin-top:2px">开启后右下角出现日志面板，可在控制台访问 window.__LANXUAN__</span></label>
+        <label class="switch">
+          <input type="checkbox" id="devModeToggle" onchange="onDevModeToggle(this.checked)">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
       <div class="settings-section-title">AI 对话</div>
       <div class="settings-group">
         <label class="settings-label">AI 提供商</label>
@@ -346,6 +353,26 @@
   </div>
 </div>
 <div class="mobile-sidebar-backdrop" id="mobileSidebarBackdrop" onclick="closeMobileSidebars()"></div>
+
+<!-- ═══ 开发者日志控制台（开发者模式开启后，右下角 🛠 打开） ═══ -->
+<div class="dev-fab" id="devFab" onclick="devToggleConsole(true)" title="开发者日志">🛠</div>
+<div class="dev-console" id="devConsole">
+  <div class="dev-console-head">
+    <span class="dev-title">LOG</span>
+    <div class="dev-filters" id="devFilters">
+      <button data-level="all" class="active" onclick="devSetFilter('all')">全部</button>
+      <button data-level="info" onclick="devSetFilter('info')">信息</button>
+      <button data-level="warn" onclick="devSetFilter('warn')">警告</button>
+      <button data-level="error" onclick="devSetFilter('error')">错误</button>
+      <button data-level="debug" onclick="devSetFilter('debug')">调试</button>
+    </div>
+    <span class="dev-spacer"></span>
+    <button class="dev-btn" onclick="devClearLogs()">清空</button>
+    <button class="dev-btn" onclick="devDownloadLogs()">导出</button>
+    <button class="dev-close" onclick="devToggleConsole(false)">✕</button>
+  </div>
+  <div class="dev-console-body" id="devConsoleBody"></div>
+</div>
 
 <script src="js/app.js"></script>
 <script>
