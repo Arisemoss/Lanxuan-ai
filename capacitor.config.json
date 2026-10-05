@@ -1,0 +1,12 @@
+{
+  "appId": "com.lanxuan.game",
+  "appName": "兰轩",
+  "webDir": "public",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  }
+}

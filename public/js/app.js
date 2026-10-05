@@ -20,6 +20,13 @@ const S = {
   }
 };
 
+// ═══ 运行时 API 基地址 ═══
+// 同源部署（Vercel / Docker / Netlify）时为空；APK / 离线包通过 js/config.js 指向后端
+function apiUrl(path) {
+  const base = (window.__LANXUAN_API_BASE__ || '').replace(/\/+$/, '');
+  return base + path;
+}
+
 // AI提供商模型映射（下拉列表末尾自动附带「自定义模型…」可手填任意模型 ID）
 const PROVIDER_MODELS = {
   mimo: ['mimo-v2-flash'],
@@ -341,7 +348,7 @@ async function saveUserData() {
   
   // 后端存储（异步，不阻塞）
   try {
-    await fetch('/api/data/save', {
+    await fetch(apiUrl('/api/data/save'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: S.userId, data })
@@ -369,7 +376,7 @@ async function loadUserData() {
   
   // 尝试从后端加载
   try {
-    const res = await fetch(`/api/data/load/${S.userId}`);
+    const res = await fetch(apiUrl(`/api/data/load/${S.userId}`));
     if (res.ok) {
       const result = await res.json();
       if (result.data) {
@@ -410,14 +417,14 @@ function saveApiSettings() {
   const select = document.getElementById('modelSelect');
   const customModelInput = document.getElementById('customModelInput');
   const model = select.value === '__custom__' ? customModelInput.value.trim() : select.value;
-  const apiUrl = document.getElementById('customApiUrl').value.trim();
+  const customApiUrl = document.getElementById('customApiUrl').value.trim();
 
   if (!model) {
     showToast('请输入模型 ID');
     return;
   }
 
-  S.apiSettings = { provider, apiKey, model, apiUrl };
+  S.apiSettings = { provider, apiKey, model, apiUrl: customApiUrl };
   localStorage.setItem('lanxuan_api_settings', JSON.stringify(S.apiSettings));
   dlog('info', 'AI 设置已保存：' + provider + ' / ' + model);
 
@@ -531,7 +538,7 @@ async function testApiConnection() {
   const provider = document.getElementById('providerSelect').value;
   const apiKey = document.getElementById('apiKeyInput').value.trim();
   const model = document.getElementById('modelSelect').value;
-  const apiUrl = document.getElementById('customApiUrl').value.trim();
+  const customApiUrl = document.getElementById('customApiUrl').value.trim();
   
   if (!apiKey) {
     statusDot.className = 'api-status-dot error';
@@ -543,7 +550,7 @@ async function testApiConnection() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    const response = await fetch('/api/chat', {
+    const response = await fetch(apiUrl('/api/chat'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -551,7 +558,7 @@ async function testApiConnection() {
         apiKey,
         provider,
         model,
-        apiUrl,
+        apiUrl: customApiUrl,
         gameState: { like: 59, trust: 50, mood: '正常', inGame: false }
       }),
       signal: controller.signal
@@ -748,7 +755,7 @@ async function callAI(userText) {
   };
 
   try {
-    const response = await fetch('/api/chat', {
+    const response = await fetch(apiUrl('/api/chat'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1300,7 +1307,7 @@ function endGame(reason) {
 // 保存对局历史到后端
 async function saveGameHistory(result) {
   try {
-    await fetch('/api/game/history', {
+    await fetch(apiUrl('/api/game/history'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2124,7 +2131,7 @@ window.closeMobileSidebars = closeMobileSidebars;
 // ═══ 战绩统计 ═══
 async function loadGameStats() {
   try {
-    const res = await fetch(`/api/game/stats/${S.userId}`);
+    const res = await fetch(apiUrl(`/api/game/stats/${S.userId}`));
     if (!res.ok) return;
     const data = await res.json();
     if (data.success && data.data) {

@@ -1,5 +1,7 @@
 node_modules
 .git
+.github
+android
 .env
 data/
 *.md

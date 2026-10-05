@@ -23,3 +23,19 @@ npm-debug.log*
 
 # 用户数据存储（服务端生成）
 data/
+
+# 本地构建产物（APK）
+dist/
+
+# Android / Capacitor
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+android/capacitor-cordova-android-plugins/
+# 由 `npx cap sync` 生成，不入库
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json

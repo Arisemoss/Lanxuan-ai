@@ -1,0 +1,68 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install required SDK packages
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 可选：在仓库 Settings → Variables 中配置 LANXUAN_API_BASE，
+      # 打包时会把后端地址写入 public/js/config.js（不配置则沿用仓库内默认值）。
+      - name: Inject backend API base
+        if: ${{ vars.LANXUAN_API_BASE != '' }}
+        run: |
+          printf "window.__LANXUAN_API_BASE__ = '%s';\n" "${{ vars.LANXUAN_API_BASE }}" > public/js/config.js
+          cat public/js/config.js
+
+      - name: Sync web assets into Android project
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Show APK info
+        run: ls -lh android/app/build/outputs/apk/debug/
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: lanxuan-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
