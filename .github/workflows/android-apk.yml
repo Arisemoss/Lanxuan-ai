@@ -1,0 +1,116 @@
+name: Build Android APK
+
+# 触发方式：
+#   1) 手动触发（Actions 页面点 "Run workflow"）
+#   2) 推送 v* 标签时自动构建并创建 Release
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # 插件（Capacitor-NodeJS）要求 Java 21 与 NDK 编译原生桥接层
+  JAVA_VERSION: '21'
+  NODE_VERSION: '20'
+  NDK_VERSION: '27.0.12077973'
+  CMAKE_VERSION: '3.22.1'
+
+jobs:
+  build-apk:
+    name: 构建 APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # ─── 环境准备 ───
+      - name: 安装 JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: 安装 Android SDK / NDK / CMake
+        uses: android-actions/setup-android@v3
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+            ndk;${{ env.NDK_VERSION }}
+            cmake;${{ env.CMAKE_VERSION }}
+
+      - name: 安装 Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      # ─── 依赖安装 ───
+      - name: 安装项目依赖
+        run: npm ci
+
+      - name: 暂存内嵌后端源码
+        # 把仓库根的 api/ server/ 复制进 public/nodejs/，供 APK 打包
+        run: node scripts/prepare-node-backend.js
+
+      - name: 安装 Node 内嵌后端依赖
+        # 插件要求 Node 模块装在 Node 工程目录内，才会随 APK 打包
+        run: |
+          cd public/nodejs
+          npm install --omit=dev --no-audit --no-fund
+
+      # ─── 同步 Web 资源与原生插件 ───
+      - name: 同步 Capacitor Android 工程
+        run: npx cap sync android
+
+      # ─── 构建 ───
+      - name: 构建 Debug APK
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: 重命名产物
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             "dist/lanxuan-${GITHUB_REF_NAME:-dev}.apk"
+          ls -lh dist/
+
+      # ─── 交付：Artifact ───
+      - name: 上传 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: lanxuan-apk
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # ─── 交付：Release（仅在打 tag 时）───
+      - name: 创建 Release 并附带 APK
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.apk
+          generate_release_notes: true
+          body: |
+            ## 兰轩 Android APK
+
+            **安装说明**
+            1. 下载下方 `.apk` 文件到手机
+            2. 允许「安装未知来源应用」
+            3. 点击安装即可
+
+            本 APK 内置本地 Node 后端，安装后无需联网即可聊天、对战；数据保存在本机。
+            支持横屏与竖屏自动旋转。
+
+            > 本构建为 Debug 包，未做签名，适合直接安装体验。
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

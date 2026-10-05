@@ -1,0 +1,9 @@
+# Node 工程依赖与运行时数据（不提交）
+node_modules/
+data/
+*.log
+
+# 构建时由 scripts/prepare-node-backend.js 暂存的后端与前端副本（不提交）
+api/
+server/
+public/

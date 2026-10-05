@@ -23,3 +23,19 @@ npm-debug.log*
 
 # 用户数据存储（服务端生成）
 data/
+
+# 内嵌 Node 工程依赖与运行时数据
+public/nodejs/node_modules/
+public/nodejs/data/
+
+# Android 构建产物
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/
+android/local.properties
+android/.idea/
+*.apk
+*.aab
+*.keystore
+!android/app/debug.keystore
