@@ -1,0 +1,24 @@
+// 兰轩 - 构建期 Maven 镜像加速（仅用于本地/CI 构建，不影响业务代码）
+// 优先走国内镜像，回退到官方源，避免在部分网络环境下依赖下载过慢。
+allprojects {
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        google()
+        mavenCentral()
+    }
+}
+
+settingsEvaluated { settings ->
+    settings.pluginManagement {
+        repositories {
+            maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+            maven { url 'https://maven.aliyun.com/repository/google' }
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            gradlePluginPortal()
+            google()
+            mavenCentral()
+        }
+    }
+}

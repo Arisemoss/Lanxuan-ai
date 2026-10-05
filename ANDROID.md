@@ -45,8 +45,10 @@ Android App 启动
 | 工具 | 版本 |
 |------|------|
 | Node.js | ≥ 18 |
-| JDK | 17 |
-| Android SDK | platform 35 / build-tools 35.0.0（或装 Android Studio） |
+| JDK | 21（`capacitor-nodejs` 插件要求） |
+| Android SDK | platform 35 / build-tools 35.0.0 |
+| NDK | 27.0.12077973（编译 Node 原生桥接层） |
+| CMake | 3.22.1 |
 
 **步骤**
 
@@ -76,6 +78,9 @@ cd android
 android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
+> 实测构建结果（本机验证）：`app-debug.apk` 约 **152 MB**，含三套架构的 `libnode.so`
+> （arm64-v8a / armeabi-v7a / x86_64）；APK 内已包含 `assets/public/nodejs/`（启动器 + 后端源码 + 依赖）。
+
 快捷命令（等价于上面 2～5 步）：
 
 ```bash
@@ -102,6 +107,7 @@ npm run cap:apk
 | `public/nodejs/index.js` | Node 启动器：准备数据目录、注入环境变量、拉起后端 |
 | `public/nodejs/package.json` | Node 工程依赖声明（express / cors / dotenv / express-rate-limit） |
 | `scripts/prepare-node-backend.js` | 构建前把 `api/`、`server/`、前端资源暂存进 `public/nodejs/` |
+| `android/init-mirrors.gradle` | 构建期 Maven 镜像（加速依赖拉取，回退官方源） |
 | `android/app/src/main/AndroidManifest.xml` | 权限、明文流量、屏幕方向设置 |
 | `android/app/src/main/res/xml/network_security_config.xml` | 仅允许 localhost 明文，其余强制 HTTPS |
 

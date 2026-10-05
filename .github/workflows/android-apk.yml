@@ -75,7 +75,8 @@ jobs:
         working-directory: android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          # 使用仓库内的 Maven 镜像配置，加速依赖拉取并提升稳定性
+          ./gradlew -I init-mirrors.gradle assembleDebug --no-daemon --stacktrace
 
       - name: 重命名产物
         run: |
