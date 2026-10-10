@@ -28,6 +28,9 @@ data/
 public/nodejs/node_modules/
 public/nodejs/data/
 
+# CI/本地预下载的插件 tarball 缓存（构建期临时文件）
+.cache/
+
 # Android 构建产物
 android/.gradle/
 android/build/
