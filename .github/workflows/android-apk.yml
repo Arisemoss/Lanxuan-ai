@@ -81,13 +81,15 @@ jobs:
           echo "❌ 所有下载源均失败"
           exit 1
 
-      - name: 安装项目依赖
-        run: npm ci
-
-      - name: 安装 Capacitor-NodeJS 插件
-        # 该插件未发布到 npm，仅在上面下载到 .cache/ 的 tarball 中。
-        # 不写入 package.json，避免普通 npm install（Vercel/Netlify/本地）因缺少缓存文件而失败。
-        run: npm install --no-save file:.cache/capacitor-nodejs.tgz
+      - name: 安装依赖并注入 Capacitor-NodeJS 插件
+        # 插件未发布到 npm，仓库的 package.json 不记录它（否则普通 Web 部署
+        # 的 npm install 会因缺少 .cache 文件失败）。这里仅在 CI 工作区注入，
+        # 让 Capacitor CLI 能识别插件并链接其原生库（libnode.so）。
+        run: |
+          npm ci
+          npm pkg set devDependencies.capacitor-nodejs="file:.cache/capacitor-nodejs.tgz"
+          npm install --no-audit --no-fund
+          test -d node_modules/capacitor-nodejs/android || (echo "插件未安装" && exit 1)
 
       - name: 暂存内嵌后端源码
         # 把仓库根的 api/ server/ 复制进 public/nodejs/，供 APK 打包

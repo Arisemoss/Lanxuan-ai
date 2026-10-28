@@ -61,11 +61,13 @@ npm install
 
 # 1.1 下载并安装 Capacitor-NodeJS 插件
 #     该插件未发布到 npm，CI 会自动下载；本地构建需手动拉取一次。
-#     不写入 package.json，避免普通 Web 部署（Vercel/Netlify）安装依赖时找不到缓存文件。
+#     仓库默认不把它写进 package.json（否则普通 Web 部署的 npm install
+#     会因缺少 .cache 文件失败），这里只在本地构建时注入。
 mkdir -p .cache
 curl -fL -o .cache/capacitor-nodejs.tgz \
   https://github.com/hampoelz/Capacitor-NodeJS/releases/download/v1.0.0-beta.9/capacitor-nodejs.tgz
-npm install --no-save file:.cache/capacitor-nodejs.tgz
+npm pkg set devDependencies.capacitor-nodejs="file:.cache/capacitor-nodejs.tgz"
+npm install
 
 # 2. 暂存内嵌后端源码（把 api/ server/ 复制进 public/nodejs/）
 node scripts/prepare-node-backend.js
