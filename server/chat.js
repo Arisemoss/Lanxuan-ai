@@ -162,10 +162,45 @@ function sanitizeUserInput(text) {
 }
 
 /**
+ * 校验用户填写的自定义 API 地址，避免把请求转发到内网 / 环回地址（SSRF）
+ */
+function isSafePublicUrl(raw) {
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (_) {
+    return false;
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!host) return false;
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return false;
+
+  // IPv4 私有 / 保留地址
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    const [a, b] = host.split('.').map(Number);
+    if (
+      a === 0 || a === 10 || a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      a >= 224
+    ) return false;
+  }
+
+  // IPv6 环回 / 链路本地 / ULA
+  if (host === '::1' || /^(fc|fd|fe8|fe9|fea|feb)/i.test(host)) return false;
+
+  return true;
+}
+
+/**
  * 过滤整个消息数组
  */
 function sanitizeMessages(messages) {
-  const allowedRoles = ['user', 'assistant', 'system'];
+  // 不接受客户端传入的 system 角色，系统提示词只由服务端拼接
+  const allowedRoles = ['user', 'assistant'];
   const cleaned = [];
   for (const msg of messages) {
     if (!msg || typeof msg !== 'object') continue;
@@ -208,9 +243,21 @@ router.post('/', async (req, res) => {
       like: like ?? gameState?.like ?? 59
     };
 
-    // 优先使用用户提供的API密钥，其次使用服务器配置
-    const activeKey = apiKey || API_CONFIG.key;
     const activeProvider = provider || 'mimo';
+    if (activeProvider !== 'mimo' && !Object.prototype.hasOwnProperty.call(PROVIDERS, activeProvider)) {
+      return res.status(400).json({ error: '不支持的 AI 提供商' });
+    }
+
+    // 自定义地址必须由用户提供且指向公网，避免 SSRF
+    if (activeProvider === 'custom') {
+      if (!apiUrl || !isSafePublicUrl(apiUrl)) {
+        return res.status(400).json({ error: '自定义 API 地址无效或不可用' });
+      }
+    }
+
+    // 服务器密钥只用于 MiMo；其他提供商必须由用户自带密钥，
+    // 否则会把服务端密钥发送到第三方地址。
+    const activeKey = activeProvider === 'mimo' ? (apiKey || API_CONFIG.key) : apiKey;
     // 根据提供商选择默认模型，避免将 MiMo 模型发送到其他提供商
     const defaultModel = activeProvider === 'mimo'
       ? API_CONFIG.model
@@ -249,9 +296,9 @@ router.post('/', async (req, res) => {
         max_tokens: 500
       };
     } else {
-      // 标准 OpenAI 兼容 API
+      // 标准 OpenAI 兼容 API；仅 custom 允许自定义地址（已在上方校验）
       const providerConfig = PROVIDERS[activeProvider];
-      apiEndpoint = apiUrl || (providerConfig ? providerConfig.url : API_CONFIG.url);
+      apiEndpoint = activeProvider === 'custom' ? apiUrl : providerConfig.url;
 
       headers = {
         'Content-Type': 'application/json',

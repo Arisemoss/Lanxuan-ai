@@ -20,11 +20,10 @@ const {
 // 1. 存储配置
 // ============================================================
 
-/** 数据存储目录 */
-const DATA_DIR = path.join(__dirname, '../data');
+const { DATA_DIR } = require('./storage');
 
 /** 备份存储目录 */
-const BACKUP_DIR = path.join(__dirname, '../data/backups');
+const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 
 /** 单用户数据大小上限 (500KB) */
 const MAX_USER_DATA_SIZE = 500 * 1024;
@@ -47,8 +46,12 @@ function ensureDirectories() {
   }
 }
 
-// 启动时确保目录存在
-ensureDirectories();
+// 启动时确保目录存在（目录不可写时不阻塞模块加载，写操作时再报错）
+try {
+  ensureDirectories();
+} catch (err) {
+  console.error('[数据] 初始化目录失败:', err.message);
+}
 
 // ============================================================
 // 2. 文件读写工具函数

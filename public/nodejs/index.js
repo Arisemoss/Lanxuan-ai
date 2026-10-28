@@ -13,11 +13,11 @@
 const path = require('path');
 
 // ═══ 1. 数据目录 ═══
-// 后端 (server/data.js) 用相对 __dirname 的方式写数据：<工程>/server/../data，
-// 即 public/nodejs/data。该路径位于 App 可写沙箱内，可跨启动持久化。
-// 此处仅计算并记录该路径，便于排查；不改变后端既有解析逻辑。
+// 插件会注入 DATADIR = filesDir/nodejs/data（App 私有可写目录，升级不丢）。
+// Node 工程目录（filesDir/nodejs/public）在 App 升级时会被整体重拷，
+// 因此绝不能把数据写在工程目录内。
 try {
-  const dataDir = path.join(__dirname, 'data');
+  const dataDir = process.env.DATADIR || path.join(__dirname, 'data');
   process.env.LANXUAN_DATA_DIR = dataDir;
 } catch (_) {
   /* 忽略：由后端使用默认路径 */

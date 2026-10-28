@@ -20,11 +20,13 @@ const {
 // 1. 存储配置
 // ============================================================
 
+const { DATA_DIR } = require('./storage');
+
 /** 游戏数据目录 */
-const GAMES_DIR = path.join(__dirname, '../data/games');
+const GAMES_DIR = path.join(DATA_DIR, 'games');
 
 /** 对局历史目录 */
-const HISTORY_DIR = path.join(__dirname, '../data/games/history');
+const HISTORY_DIR = path.join(DATA_DIR, 'games/history');
 
 /**
  * 确保目录存在
@@ -38,7 +40,11 @@ function ensureGameDirectories() {
   }
 }
 
-ensureGameDirectories();
+try {
+  ensureGameDirectories();
+} catch (err) {
+  console.error('[游戏] 初始化目录失败:', err.message);
+}
 
 // ============================================================
 // 2. 文件工具函数（与data.js保持一致）
@@ -234,8 +240,12 @@ router.post('/history', asyncHandler(async (req, res) => {
   }
 
   // 验证对局记录
-  if (!gameRecord || typeof gameRecord !== 'object') {
+  if (!gameRecord || typeof gameRecord !== 'object' || Array.isArray(gameRecord)) {
     throw new AppError(ErrorTypes.VALIDATION, '对局记录必须是一个对象');
+  }
+  // 限制单条详情体积，避免历史文件被恶意撑大
+  if (gameRecord.details && JSON.stringify(gameRecord.details).length > 20000) {
+    throw new AppError(ErrorTypes.VALIDATION, '对局详情过大');
   }
 
   const validResults = ['win', 'lose', 'draw'];
@@ -251,8 +261,8 @@ router.post('/history', asyncHandler(async (req, res) => {
     playerHero: gameRecord.playerHero || '未知',
     aiHero: gameRecord.aiHero || '未知',
     result: gameRecord.result || 'draw',
-    rounds: gameRecord.rounds || 0,
-    duration: gameRecord.duration || 0,
+    rounds: Number.isFinite(gameRecord.rounds) ? gameRecord.rounds : 0,
+    duration: Number.isFinite(gameRecord.duration) ? gameRecord.duration : 0,
     details: gameRecord.details || null,
     createdAt: now
   };
@@ -399,11 +409,12 @@ router.get('/stats/:userId', asyncHandler(async (req, res) => {
     }
   }
 
-  // 计算当前连胜/连败
+  // 计算当前连胜/连败（平局中断连续记录）
   for (let i = records.length - 1; i >= 0; i--) {
     const r = records[i].result;
+    if (r !== 'win' && r !== 'lose') break;
     if (currentStreak === 0) {
-      currentStreak = r === 'win' ? 1 : r === 'lose' ? -1 : 0;
+      currentStreak = r === 'win' ? 1 : -1;
     } else if (currentStreak > 0 && r === 'win') {
       currentStreak++;
     } else if (currentStreak < 0 && r === 'lose') {

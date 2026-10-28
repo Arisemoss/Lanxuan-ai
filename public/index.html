@@ -377,10 +377,24 @@
 
 <script src="js/app.js"></script>
 <script>
-// 注册Service Worker
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+// Service Worker：仅 Web 部署注册。
+// APK 内页面来自本地 assets，缓存会干扰发版更新与跨源 API；
+// 旧版本可能残留 SW，这里主动注销并清理缓存。
+var isNativeShell = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+if (isNativeShell) {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      regs.forEach(function (r) { r.unregister(); });
+    }).catch(function () {});
+  }
+  if (window.caches) {
+    caches.keys().then(function (keys) {
+      keys.forEach(function (k) { caches.delete(k); });
+    }).catch(function () {});
+  }
+} else if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("/sw.js").catch(function () {});
   });
 }
 </script>

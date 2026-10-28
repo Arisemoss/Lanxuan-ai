@@ -1943,6 +1943,33 @@ header::after {
   .gb-phase { font-size: var(--fs-xs); }
 }
 
+/* 横屏矮屏（如 844×390）：压缩牌桌，保证手牌与操作按钮不被裁掉 */
+@media (max-height: 460px) and (orientation: landscape) {
+  .gb-content {
+    padding: 6px 12px;
+    overflow-y: auto;
+  }
+  .gb-header { padding: 4px 10px; }
+  .gb-zone { padding: 4px 8px; gap: 8px; }
+  .gb-avatar { width: 30px; height: 30px; font-size: 12px; }
+  .gb-player-name { font-size: 12px; margin-bottom: 2px; }
+  .hp-dot { width: 10px; height: 10px; }
+  .gb-play-zone { gap: 4px; }
+  .gb-deck-pile { display: none; }
+  .gb-hand-area { min-height: 84px; padding: 2px 0; gap: 2px; }
+  .card { width: 56px; height: 80px; }
+  .card-name { font-size: 14px; max-height: 62px; }
+  .gb-actions { padding: 2px 0 0; gap: 6px; }
+  .gb-btn, .gb-skill-btn { height: 30px; padding: 0 12px; font-size: 11px; }
+  .gb-play-text { font-size: 12px; min-height: 16px; }
+}
+
+/* 超矮屏兜底：弹窗内容可滚动，避免按钮被裁 */
+.onboarding-card {
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}
+
 /* 触屏设备：关闭鼠标跟随光晕 */
 @media (pointer: coarse) {
   .cursor-glow { display: none; }

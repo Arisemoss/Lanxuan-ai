@@ -32,6 +32,21 @@ function apiUrl(path) {
   return isNativeApp() ? 'http://127.0.0.1:3000' + path : path;
 }
 
+// 原生环境下内嵌后端启动需要几秒，网络层失败时做少量重试；
+// Web 部署保持单次请求。
+async function fetchApi(path, options = {}, attempts = isNativeApp() ? 3 : 1) {
+  let lastError;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fetch(apiUrl(path), options);
+    } catch (err) {
+      lastError = err;
+      if (i < attempts - 1) await new Promise(r => setTimeout(r, 1200));
+    }
+  }
+  throw lastError;
+}
+
 // AI提供商模型映射（下拉列表末尾自动附带「自定义模型…」可手填任意模型 ID）
 const PROVIDER_MODELS = {
   mimo: ['mimo-v2-flash'],
@@ -303,6 +318,7 @@ const G = {
   turn: 0,
   round: 1,
   active: false,
+  gameId: 0, // 对局代号：防止上一局的 AI 定时器污染新对局
   player: { hero: null, hp: 4, maxHp: 4, hand: [], hasDrawn: false, shaUsed: false, skillUsed: false, skillState: null, yaJiaoUsed: false },
   ai: { hero: null, hp: 4, maxHp: 4, hand: [], hasDrawn: false, shaUsed: false, skillUsed: false, skillState: null, yaJiaoUsed: false }
 };
@@ -348,12 +364,16 @@ async function saveUserData() {
     history: S.history.slice(-50) // 只保存最近50条
   };
   
-  // 本地存储
-  localStorage.setItem('lanxuan_data', JSON.stringify(data));
+  // 本地存储（隐私模式 / 配额不足时不应中断后续保存）
+  try {
+    localStorage.setItem('lanxuan_data', JSON.stringify(data));
+  } catch (e) {
+    console.warn('本地存储失败:', e && e.message);
+  }
   
   // 后端存储（异步，不阻塞）
   try {
-    await fetch(apiUrl('/api/data/save'), {
+    await fetchApi('/api/data/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: S.userId, data })
@@ -369,8 +389,8 @@ async function loadUserData() {
   if (localData) {
     try {
       const data = JSON.parse(localData);
-      S.like = data.like || 59;
-      S.trust = data.trust || 50;
+      S.like = data.like ?? 59;
+      S.trust = data.trust ?? 50;
       S.mood = data.mood || '正常';
       S.history = data.history || [];
       renderProfile();
@@ -381,12 +401,12 @@ async function loadUserData() {
   
   // 尝试从后端加载
   try {
-    const res = await fetch(apiUrl(`/api/data/load/${S.userId}`));
+    const res = await fetchApi(`/api/data/load/${S.userId}`);
     if (res.ok) {
       const result = await res.json();
       if (result.data) {
-        S.like = result.data.like || S.like;
-        S.trust = result.data.trust || S.trust;
+        S.like = result.data.like ?? S.like;
+        S.trust = result.data.trust ?? S.trust;
         S.mood = result.data.mood || S.mood;
         S.history = result.data.history || S.history;
         renderProfile();
@@ -542,12 +562,25 @@ async function testApiConnection() {
   
   const provider = document.getElementById('providerSelect').value;
   const apiKey = document.getElementById('apiKeyInput').value.trim();
-  const model = document.getElementById('modelSelect').value;
+  const modelSelect = document.getElementById('modelSelect');
+  const model = modelSelect.value === '__custom__'
+    ? document.getElementById('customModelInput').value.trim()
+    : modelSelect.value;
   const customApiUrl = document.getElementById('customApiUrl').value.trim();
-  
+
   if (!apiKey) {
     statusDot.className = 'api-status-dot error';
     statusText.textContent = '请先输入API密钥';
+    return;
+  }
+  if (!model) {
+    statusDot.className = 'api-status-dot error';
+    statusText.textContent = '请输入模型 ID';
+    return;
+  }
+  if (provider === 'custom' && !customApiUrl) {
+    statusDot.className = 'api-status-dot error';
+    statusText.textContent = '请填写自定义 API 地址';
     return;
   }
   
@@ -563,14 +596,18 @@ async function testApiConnection() {
         apiKey,
         provider,
         model,
-        apiUrl: customApiUrl,
+        apiUrl: provider === 'custom' ? customApiUrl : undefined,
         gameState: { like: 59, trust: 50, mood: '正常', inGame: false }
       }),
       signal: controller.signal
     });
     
     const data = await response.json();
-    if (data.apiError) {
+
+    if (!response.ok) {
+      statusDot.className = 'api-status-dot error';
+      statusText.textContent = data.error ? '连接失败: ' + data.error : '连接失败（HTTP ' + response.status + '）';
+    } else if (data.apiError) {
       statusDot.className = 'api-status-dot error';
       statusText.textContent = 'API密钥无效';
     } else if (data.fallback) {
@@ -759,6 +796,9 @@ async function callAI(userText) {
     round: G.round
   };
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+
   try {
     const response = await fetch(apiUrl('/api/chat'), {
       method: 'POST',
@@ -770,8 +810,9 @@ async function callAI(userText) {
         apiKey: S.apiSettings.apiKey || undefined,
         provider: S.apiSettings.provider || undefined,
         model: S.apiSettings.model || undefined,
-        apiUrl: S.apiSettings.apiUrl || undefined
-      })
+        apiUrl: S.apiSettings.provider === 'custom' ? (S.apiSettings.apiUrl || undefined) : undefined
+      }),
+      signal: controller.signal
     });
 
     if (!response.ok) {
@@ -787,11 +828,15 @@ async function callAI(userText) {
       }, 100);
     }
     
-    return data.reply || generateLocalReply();
+    return typeof data.reply === 'string' && data.reply.trim()
+      ? data.reply
+      : generateLocalReply();
 
   } catch (error) {
     console.warn('Chat API不可用，使用本地回复:', error);
     return generateLocalReply();
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -930,53 +975,60 @@ async function sendMsg() {
   S.history.push({ role: 'user', content: text });
   
   const typingEl = showTyping();
-  const reply = await callAI(text);
-  if (typingEl && typingEl.parentNode) typingEl.parentNode.removeChild(typingEl);
-  
-  // 解析情绪标签
-  let cleanReply = reply;
-  
-  // 解析情绪
-  const moodMatch = reply.match(/<情绪\(([^)]+)\)>/);
-  let newMood = S.mood;
-  if (moodMatch) {
-    newMood = moodMatch[1];
-    cleanReply = cleanReply.replace(moodMatch[0], '').trim();
+
+  try {
+    const reply = await callAI(text);
+    const safeReply = typeof reply === 'string' && reply.trim() ? reply : generateLocalReply();
+
+    // 解析情绪标签
+    let cleanReply = safeReply;
+
+    // 解析情绪
+    const moodMatch = safeReply.match(/<情绪\(([^)]+)\)>/);
+    let newMood = S.mood;
+    if (moodMatch) {
+      newMood = moodMatch[1];
+      cleanReply = cleanReply.replace(moodMatch[0], '').trim();
+    }
+
+    // 解析好感度变化
+    const likeMatch = cleanReply.match(/<好感变化:([+-]?\d+)>/);
+    if (likeMatch) {
+      const likeChange = parseInt(likeMatch[1]);
+      S.like = Math.max(0, Math.min(100, S.like + likeChange));
+      cleanReply = cleanReply.replace(likeMatch[0], '').trim();
+    }
+
+    // 解析信任度变化
+    const trustMatch = cleanReply.match(/<信任变化:([+-]?\d+)>/);
+    if (trustMatch) {
+      const trustChange = parseInt(trustMatch[1]);
+      S.trust = Math.max(0, Math.min(100, S.trust + trustChange));
+      cleanReply = cleanReply.replace(trustMatch[0], '').trim();
+    }
+
+    // 更新情绪
+    if (moodMatch) {
+      S.mood = newMood;
+    }
+
+    addMsg('a', cleanReply);
+    S.history.push({ role: 'assistant', content: cleanReply });
+    renderProfile();
+  } catch (err) {
+    console.warn('处理回复失败:', err);
+    addMsg('a', '（兰轩挠了挠头）刚才走神了，你再说一遍？');
+  } finally {
+    if (typingEl && typingEl.parentNode) typingEl.parentNode.removeChild(typingEl);
+    S.busy = false;
+    // 保存数据
+    saveUserData();
   }
-  
-  // 解析好感度变化
-  const likeMatch = cleanReply.match(/<好感变化:([+-]?\d+)>/);
-  if (likeMatch) {
-    const likeChange = parseInt(likeMatch[1]);
-    S.like = Math.max(0, Math.min(100, S.like + likeChange));
-    cleanReply = cleanReply.replace(likeMatch[0], '').trim();
-  }
-  
-  // 解析信任度变化
-  const trustMatch = cleanReply.match(/<信任变化:([+-]?\d+)>/);
-  if (trustMatch) {
-    const trustChange = parseInt(trustMatch[1]);
-    S.trust = Math.max(0, Math.min(100, S.trust + trustChange));
-    cleanReply = cleanReply.replace(trustMatch[0], '').trim();
-  }
-  
-  // 更新情绪
-  if (moodMatch) {
-    S.mood = newMood;
-  }
-  
-  addMsg('a', cleanReply);
-  S.history.push({ role: 'assistant', content: cleanReply });
-  renderProfile();
-  S.busy = false;
-  
-  // 保存数据
-  saveUserData();
 }
 
-// 回车发送
+// 回车发送（中文输入法选词回车不触发）
 document.getElementById('chatInput')?.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') sendMsg();
+  if (e.key === 'Enter' && !e.isComposing) sendMsg();
 });
 
 // ═══ 全局快捷键 ═══
@@ -1082,6 +1134,7 @@ function assignColor(card) {
 }
 
 function initGame() {
+  G.gameId++;
   G.deck = buildDeck();
   G.turn = 0;
   G.round = 1;
@@ -1312,7 +1365,7 @@ function endGame(reason) {
 // 保存对局历史到后端
 async function saveGameHistory(result) {
   try {
-    await fetch(apiUrl('/api/game/history'), {
+    await fetchApi('/api/game/history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1762,12 +1815,13 @@ function endTurn() {
   addLog('── 兰轩的回合 ──', 'log-turn');
   document.getElementById('playText').textContent = '兰轩正在思考...';
   renderGame();
-  setTimeout(aiTurn, 700);
+  const gid = G.gameId;
+  setTimeout(() => aiTurn(gid), 700);
 }
 
 // ═══ AI回合（智能优化版） ═══
-function aiTurn() {
-  if (!G.active) return;
+function aiTurn(gid) {
+  if (!G.active || gid !== G.gameId) return;
   
   const drawn = drawFromDeck(2).map(assignColor);
   G.ai.hand.push(...drawn);
@@ -1776,6 +1830,8 @@ function aiTurn() {
 
   // AI智能策略 - 根据情况选择最优策略
   setTimeout(() => {
+    if (!G.active || gid !== G.gameId) return;
+
     // AI智能技能使用
     useAISmartSkills();
     
@@ -1783,7 +1839,7 @@ function aiTurn() {
     if (G.ai.hero?.id === 'zhangfei') G.ai.shaUsed = false;
     
     // 执行AI出牌策略
-    executeSmartAIActions();
+    executeSmartAIActions(gid);
   }, 800);
 }
 
@@ -1813,14 +1869,15 @@ function useAISmartSkills() {
   }
 }
 
-function executeSmartAIActions() {
+function executeSmartAIActions(gid) {
   let acted = true;
   let actionsCount = 0;
   const maxActions = 6; // 限制AI行动次数
   
   const executeNextAction = () => {
-    if (!G.active || actionsCount >= maxActions) {
-      finishAITurn();
+    if (!G.active || gid !== G.gameId) return;
+    if (actionsCount >= maxActions) {
+      finishAITurn(gid);
       return;
     }
     
@@ -1967,14 +2024,16 @@ function executeSmartAIActions() {
     if (acted) {
       setTimeout(executeNextAction, 700);
     } else {
-      finishAITurn();
+      finishAITurn(gid);
     }
   };
   
   executeNextAction();
 }
 
-function finishAITurn() {
+function finishAITurn(gid) {
+  if (!G.active || gid !== G.gameId) return;
+
   // AI弃牌阶段：手牌超过体力值时智能弃牌
   while (G.ai.hand.length > G.ai.hp) {
     const discardIdx = aiChooseDiscard();
@@ -2136,7 +2195,7 @@ window.closeMobileSidebars = closeMobileSidebars;
 // ═══ 战绩统计 ═══
 async function loadGameStats() {
   try {
-    const res = await fetch(apiUrl(`/api/game/stats/${S.userId}`));
+    const res = await fetchApi(`/api/game/stats/${S.userId}`);
     if (!res.ok) return;
     const data = await res.json();
     if (data.success && data.data) {

@@ -59,6 +59,14 @@ Android App 启动
 # 1. 安装项目依赖
 npm install
 
+# 1.1 下载并安装 Capacitor-NodeJS 插件
+#     该插件未发布到 npm，CI 会自动下载；本地构建需手动拉取一次。
+#     不写入 package.json，避免普通 Web 部署（Vercel/Netlify）安装依赖时找不到缓存文件。
+mkdir -p .cache
+curl -fL -o .cache/capacitor-nodejs.tgz \
+  https://github.com/hampoelz/Capacitor-NodeJS/releases/download/v1.0.0-beta.9/capacitor-nodejs.tgz
+npm install --no-save file:.cache/capacitor-nodejs.tgz
+
 # 2. 暂存内嵌后端源码（把 api/ server/ 复制进 public/nodejs/）
 node scripts/prepare-node-backend.js
 
@@ -84,7 +92,7 @@ android/app/build/outputs/apk/debug/app-debug.apk
 > 实测构建结果（本机验证）：`app-debug.apk` 约 **152 MB**，含三套架构的 `libnode.so`
 > （arm64-v8a / armeabi-v7a / x86_64）；APK 内已包含 `assets/public/nodejs/`（启动器 + 后端源码 + 依赖）。
 
-快捷命令（等价于上面 2～5 步）：
+快捷命令（需先完成 1.1 的插件安装；等价于上面 2～5 步）：
 
 ```bash
 npm run cap:apk

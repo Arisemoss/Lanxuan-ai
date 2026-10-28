@@ -3,6 +3,9 @@ FROM node:18-alpine
 # 设置工作目录
 WORKDIR /app
 
+# 生产环境（启用静态缓存、CORS 默认策略与精简错误信息）
+ENV NODE_ENV=production
+
 # 复制依赖文件
 COPY package*.json ./
 

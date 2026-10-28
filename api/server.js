@@ -22,6 +22,7 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const { DATA_DIR } = require('../server/storage');
 
 // ═══ 中间件配置 ═══
 
@@ -31,10 +32,16 @@ app.use(securityHeaders());
 // 请求日志
 app.use(requestLogger());
 
-// CORS配置
+// CORS配置：生产环境仅在显式配置来源时放行；未配置则不下发 CORS 头
+// （同源 Web 部署不受影响，跨源请求被拒绝）
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? (process.env.ALLOWED_ORIGINS?.split(',') || true)
+    ? (allowedOrigins.length ? allowedOrigins : false)
     : true,
   credentials: true,
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
@@ -101,13 +108,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// 404处理（API路由未匹配时，必须先于 SPA 回退注册，避免返回 index.html）
+app.use('/api', notFoundHandler());
+
 // SPA回退 - 所有非API请求返回index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
-
-// 404处理（API路由未匹配时）
-app.use('/api', notFoundHandler());
 
 // 全局错误处理
 app.use(errorHandler({
@@ -122,7 +129,7 @@ if (require.main === module) {
   server = app.listen(PORT, () => {
     console.log(`🚀 兰轩在线平台运行在 http://localhost:${PORT}`);
     console.log(`📝 环境: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`💾 数据目录: ${path.join(__dirname, '../data')}`);
+    console.log(`💾 数据目录: ${DATA_DIR}`);
   });
 
   // Graceful shutdown

@@ -3,7 +3,7 @@
  * 提供离线缓存和PWA支持
  */
 
-const CACHE_NAME = 'lanxuan-v12';
+const CACHE_NAME = 'lanxuan-v13';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -47,7 +47,7 @@ self.addEventListener('fetch', (event) => {
         .catch(() =>
           new Response(
             JSON.stringify({ success: false, error: '网络不可用，请检查连接', offline: true }),
-            { headers: { 'Content-Type': 'application/json' } }
+            { status: 503, headers: { 'Content-Type': 'application/json' } }
           )
         )
     );

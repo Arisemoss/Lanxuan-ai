@@ -24,7 +24,6 @@
   "devDependencies": {
     "@capacitor/android": "^7.6.9",
     "@capacitor/cli": "^7.6.9",
-    "@capacitor/core": "^7.6.9",
-    "capacitor-nodejs": "file:.cache/capacitor-nodejs.tgz"
+    "@capacitor/core": "^7.6.9"
   }
 }
