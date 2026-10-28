@@ -26,8 +26,10 @@ try {
 // ═══ 2. 环境变量 ═══
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 process.env.PORT = process.env.PORT || '3000';
-// 仅本机回环访问，无需限制跨域来源
-process.env.ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || '';
+// App 内页面从本地 assets 加载（http://localhost），API 走 127.0.0.1:3000，
+// 属跨源请求，需显式放行 WebView 来源；仅本机回环可达。
+process.env.ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS ||
+  'http://localhost,https://localhost,capacitor://localhost,http://127.0.0.1:3000';
 
 // ═══ 3. Node for Mobile 兼容性兜底 ═══
 // 部分精简版 Node 运行时可能缺失 fetch / AbortController，

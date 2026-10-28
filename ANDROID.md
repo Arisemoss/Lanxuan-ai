@@ -8,12 +8,15 @@
 
 ```
 Android App 启动
+   ├─ WebView 加载本地 assets（http://localhost）→ 界面立即可用
    └─ Capacitor-NodeJS 在 App 沙箱内拉起 Node.js 运行时
         └─ 执行 public/nodejs/index.js（启动器）
              └─ require api/server.js → Express 监听 127.0.0.1:3000
-   └─ WebView 加载 http://127.0.0.1:3000
-        └─ 页面 fetch('/api/...') → 同源命中本地后端 ✅
+                  ⇅
+        └─ 页面 fetch('http://127.0.0.1:3000/api/...') → 命中本地后端 ✅
 ```
+
+> **为什么不让 WebView 直接加载 127.0.0.1:3000**：Node 引擎的启动（拷贝 assets、初始化运行时）在后台线程异步进行，而 Capacitor 注册完插件后立即 `loadUrl`，首屏请求必然抢先，触发 `ERR_CONNECTION_REFUSED` 且 WebView 不会自动重试。改为「本地界面 + 绝对 API 地址」后，界面不依赖后端启动时序，后端就绪前后都能正常显示。
 
 | 组件 | 说明 |
 |------|------|
@@ -22,7 +25,7 @@ Android App 启动
 | `public/nodejs/` | Node 工程目录（启动器 + 依赖），随 APK 打包 |
 | `android/` | 原生 Android 工程（由 `cap add android` 生成） |
 
-**横竖屏**：Manifest 未锁定屏幕方向，跟随系统自动旋转；前端 CSS 已有响应式断点（桌面三栏 / 移动抽屉），横屏竖屏均可正常使用。
+**横竖屏**：Manifest 显式声明 `screenOrientation="fullSensor"`，竖屏/横屏均可自由旋转（`configChanges` 含 `orientation|screenSize`，旋转不重建 Activity）；前端 CSS 已有响应式断点（桌面三栏 / 移动抽屉），横屏竖屏均可正常使用。
 
 ---
 

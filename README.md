@@ -78,14 +78,17 @@ npm start          # → http://localhost:3000
 
 ## 📱 Android APK 打包
 
-APK 的核心思路：**把 Web 前端和 Node 后端一起装进手机**，App 启动时在沙箱内拉起 Node.js，本地监听 `127.0.0.1:3000`，WebView 加载同源地址 —— 前端 `fetch('/api/...')` 直接命中本地后端，**无需改动任何业务代码**。
+APK 的核心思路：**把 Web 前端和 Node 后端一起装进手机**。WebView 直接从本地 assets 加载界面（即时渲染，不依赖后端），同时在沙箱内拉起 Node.js 监听 `127.0.0.1:3000`；前端在原生环境下把 `/api/...` 指向该地址，后端就绪后自动走本地 API。
 
 ```
 Android App 启动
+   ├─ WebView 加载本地 assets（http://localhost）→ 界面立即可用
    └─ Capacitor-NodeJS 在沙箱内拉起 Node.js 运行时
         └─ public/nodejs/index.js（启动器）→ Express 监听 127.0.0.1:3000
-   └─ WebView 加载 http://127.0.0.1:3000（同源 → 直接调本地 API ✅）
+             ⇅  前端 fetch('http://127.0.0.1:3000/api/...') 命中本地后端
 ```
+
+> 早期实现让 WebView 直接加载 `http://127.0.0.1:3000`，但 Node 引擎启动是异步的，首屏请求会抢先导致 `ERR_CONNECTION_REFUSED`。现改为「本地界面 + 绝对 API 地址」，彻底消除该竞态。
 
 | 组件 | 说明 |
 |------|------|
